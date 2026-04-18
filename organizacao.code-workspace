@@ -1,0 +1,88 @@
+{
+  "folders": [
+    {
+      "name": "root",
+      "path": "."
+    },
+    {
+      "name": "src",
+      "path": "src"
+    },
+    {
+      "name": "tests",
+      "path": "tests"
+    },
+    {
+      "name": "scripts",
+      "path": "scripts"
+    },
+    {
+      "name": "docs",
+      "path": "docs"
+    },
+    {
+      "name": "assets",
+      "path": "assets"
+    }
+  ],
+  "settings": {
+    "python.defaultInterpreterPath": ".venv/bin/python",
+    "python.analysis.extraPaths": [
+      "./src"
+    ],
+    "editor.formatOnSave": true,
+    "files.exclude": {
+      "**/__pycache__": true,
+      "**/.DS_Store": true,
+      "**/.pytest_cache": true
+    },
+    "search.exclude": {
+      "**/__pycache__": true,
+      "**/.pytest_cache": true
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-python.python",
+      "ms-python.vscode-pylance",
+      "ms-toolsai.jupyter",
+      "ms-azuretools.vscode-docker"
+    ]
+  },
+  "launch": {
+    "configurations": [
+      {
+        "name": "Run Streamlit UI",
+        "type": "python",
+        "request": "launch",
+        "module": "streamlit",
+        "args": [
+          "run",
+          "src/rag_project/ui/app.py"
+        ],
+        "justMyCode": true
+      }
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Run Docker Compose",
+        "type": "shell",
+        "command": "docker-compose up --build",
+        "group": "build"
+      },
+      {
+        "label": "Run Ingestion Script",
+        "type": "shell",
+        "command": "python scripts/ingest_data.py"
+      },
+      {
+        "label": "Run Evaluation",
+        "type": "shell",
+        "command": "python scripts/run_eval.py"
+      }
+    ]
+  }
+}
