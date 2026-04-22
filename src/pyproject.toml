@@ -1,0 +1,55 @@
+[tool.poetry]
+name = "rag-eletrico"
+version = "0.1.0"
+description = "RAG para domínio elétrico (ANEEL)"
+authors = ["isadora-yasmim"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+# LangChain core
+langchain = "^0.3"
+langchain-core = "^0.3"
+langchain-community = "^0.3"
+langchain-openai = "^0.2"
+langchain-huggingface = "^0.1"
+langchain-text-splitters = "^0.3"
+
+# Embeddings / Modelos locais
+sentence-transformers = "^3.0"   # BGE reranker + E5
+torch = "^2.3"                    # backend do sentence-transformers
+
+# Vector DB
+supabase = "^2.4"
+
+# LLM
+openai = "^1.40"
+
+# BM25
+rank-bm25 = "^0.2"
+
+# Config
+pydantic-settings = "^2.4"
+python-dotenv = "^1.0"
+
+# Avaliação
+ragas = "^0.1"
+datasets = "^2.20"
+
+# UI
+streamlit = "^1.38"
+
+# Utilitários
+tqdm = "^4.66"
+tenacity = "^8.5"    # retry para chamadas de API
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.0"
+pytest-asyncio = "^0.23"
+black = "^24.0"
+ruff = "^0.6"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
