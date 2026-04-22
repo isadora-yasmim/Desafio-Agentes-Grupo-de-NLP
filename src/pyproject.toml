@@ -3,6 +3,7 @@ name = "rag-eletrico"
 version = "0.1.0"
 description = "RAG para domínio elétrico (ANEEL)"
 authors = ["isadora-yasmim"]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"

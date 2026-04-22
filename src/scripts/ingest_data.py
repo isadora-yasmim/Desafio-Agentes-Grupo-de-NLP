@@ -18,6 +18,16 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
+
+logger = logging.getLogger(__name__)
+
 from pathlib import Path
 
 # Adiciona o root do projeto ao path
@@ -56,7 +66,9 @@ def run_ingestion(
     logger.info("═" * 60)
 
     parser = AneelJsonParser()
-    data_path = Path(data_dir)
+
+    # 🔥 ALTERAÇÃO AQUI (caminho absoluto correto)
+    data_path = Path(__file__).resolve().parents[2] / data_dir
 
     # Filtra por ano se especificado
     if year_filter:

@@ -19,8 +19,8 @@ from typing import Literal
 from langchain_core.documents import Document
 from langchain_community.vectorstores import SupabaseVectorStore
 
-from src.core.config import settings
-from src.core.logging import get_logger
+from core.config import settings
+from core.logger import get_logger
 
 logger = get_logger(__name__)
 

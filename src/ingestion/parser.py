@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator
 
-from src.core.logging import get_logger
+from core.logger import get_logger
 
 logger = get_logger(__name__)
 

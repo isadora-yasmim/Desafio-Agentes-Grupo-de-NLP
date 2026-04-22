@@ -35,8 +35,8 @@ from typing import Literal
 
 from langchain_core.documents import Document
 
-from src.ingestion.parser import AneelDocument
-from src.core.logging import get_logger
+from ingestion.parser import AneelDocument
+from core.logger import get_logger
 
 logger = get_logger(__name__)
 

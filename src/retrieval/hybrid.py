@@ -25,8 +25,8 @@ from langchain.retrievers import EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
 from langchain_community.vectorstores import SupabaseVectorStore
 
-from src.core.config import settings
-from src.core.logging import get_logger
+from core.config import settings
+from core.logger import get_logger
 from src.ingestion.embedder import get_embeddings, get_supabase_client
 
 logger = get_logger(__name__)
