@@ -49,7 +49,7 @@ def run_ingestion(
     dry_run: bool = False,
     clear: bool = False,
     year_filter: str | None = None,
-    batch_size: int = 100,
+    batch_size: int = 20,
 ) -> dict:
     """
     Executa o pipeline completo de ingestão.
@@ -190,7 +190,7 @@ def main():
         help="Filtra apenas JSONs de um ano (ex: 2016)"
     )
     parser.add_argument(
-        "--batch-size", type=int, default=100,
+        "--batch-size", type=int, default=20,
         help="Chunks por batch de upsert"
     )
 
