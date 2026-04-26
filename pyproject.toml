@@ -44,6 +44,8 @@ tqdm = "^4.66"
 tenacity = "^8.5"    # retry para chamadas de API
 supabase = "2.22.0"
 supabase-auth = "2.22.0"
+qdrant-client = "^1.17.1"
+langchain-qdrant = "<1.0.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.0"
