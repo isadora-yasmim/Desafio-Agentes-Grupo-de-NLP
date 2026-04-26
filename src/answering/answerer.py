@@ -41,11 +41,9 @@ def is_valid_rag_response(response: str) -> bool:
         "não foi possível responder",
         "não contém informações",
         "não há informação suficiente",
-        "não encontrei documentos",
     ]
 
     response_lower = response.lower()
-
     return not any(signal in response_lower for signal in invalid_signals)
 
 
@@ -71,6 +69,7 @@ def extract_sources(chunks: list[dict]) -> list[dict]:
     return sources
 
 
+# 🔥 FUNÇÃO CORRIGIDA AQUI
 def format_document_listing(chunks: list[dict]) -> str:
     documents = []
 
@@ -98,7 +97,19 @@ def format_document_listing(chunks: list[dict]) -> str:
             f"{score:.4f}" if isinstance(score, (int, float)) else "não informado"
         )
 
-        evidence = content if content else "Sem evidência textual disponível."
+        # 🔥 LIMPEZA DE EVIDÊNCIA
+        evidence = content
+
+        for text in [
+            f"Tipo do ato: {doc_type}",
+            f"Título: {title}",
+        ]:
+            evidence = evidence.replace(text, "")
+
+        evidence = " ".join(evidence.split()).strip()
+
+        if not evidence:
+            evidence = "Sem evidência textual disponível."
 
         documents.append(
             f"- **{doc_type} — {title}**\n"
@@ -144,6 +155,8 @@ Regras:
         return self.llm.invoke(prompt).content
 
     def answer(self, query: str, chunks: list[dict]) -> dict:
+
+        # 🔥 1. DOCUMENT LISTING
         if is_document_listing_query(query):
             if not chunks:
                 return {
@@ -162,6 +175,7 @@ Regras:
                 "used_rag": True,
             }
 
+        # 🔥 2. CONCEITUAL
         if is_conceptual_query(query):
             explanation = self._conceptual_answer(query)
 
@@ -172,8 +186,7 @@ Regras:
                     return {
                         "type": "hybrid",
                         "answer": (
-                            "(Baseado em conhecimento geral do modelo, com complementos "
-                            "de documentos regulatórios quando disponíveis)\n\n"
+                            "(Baseado em conhecimento geral do modelo, com complementos de documentos regulatórios quando disponíveis)\n\n"
                             f"{explanation}\n\n"
                             "---\n\n"
                             "📚 Baseado nos documentos regulatórios:\n\n"
@@ -187,8 +200,7 @@ Regras:
             return {
                 "type": "conceptual",
                 "answer": (
-                    "(Baseado em conhecimento geral do modelo, devido à ausência de "
-                    "evidência relevante nos documentos recuperados)\n\n"
+                    "(Baseado em conhecimento geral do modelo, devido à ausência de evidência relevante nos documentos recuperados)\n\n"
                     f"{explanation}"
                 ),
                 "confidence": "média",
@@ -196,6 +208,7 @@ Regras:
                 "used_rag": False,
             }
 
+        # 🔥 3. FACTUAL (RAG)
         if not chunks:
             return {
                 "type": "factual",
