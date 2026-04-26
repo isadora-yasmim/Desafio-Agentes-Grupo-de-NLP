@@ -3,11 +3,11 @@ ingest_data.py
 --------------
 Script principal de ingestão. Orquestra todo o pipeline:
 
-  JSON files → Parser → Chunker → Embedder → Supabase
+  JSON files → Parser → Chunker → Embedder → Qdrant
 
 Uso:
     python scripts/ingest_data.py                    # usa settings padrão
-    python scripts/ingest_data.py --dry-run          # sem inserir no Supabase
+    python scripts/ingest_data.py --dry-run          # sem inserir no Qdrant
     python scripts/ingest_data.py --backend openai   # força backend
     python scripts/ingest_data.py --clear            # limpa tabela antes
     python scripts/ingest_data.py --year 2016        # apenas um ano
@@ -140,7 +140,7 @@ def run_ingestion(
     logger.info(f"  → Tamanho médio: {avg_len:.0f} chars")
 
     if dry_run:
-        logger.info("\n[DRY RUN] Pulando inserção no Supabase.")
+        logger.info("\n[DRY RUN] Pulando inserção no Qdrant.")
         for chunk_type in ["document_summary", "semantic_window", "keyword_context"]:
             example = next(
                 (
@@ -152,8 +152,6 @@ def run_ingestion(
 
         if example:
             logger.info(f"\nExemplo de chunk_type={chunk_type}:")
-            #logger.info("Exemplo de chunk gerado:")
-            #logger.info(chunks[0].page_content)
             logger.info(example.page_content[:1000])
             logger.info(f"Metadados: {example.metadata}")
             stats["elapsed"] = time.time() - start
@@ -161,7 +159,7 @@ def run_ingestion(
 
     # ── 3. Embedding + Upsert ────────────────────────────────────────────────
     logger.info("\n" + "═" * 60)
-    logger.info(f"ETAPA 3: Embedding ({backend}) + Upsert no Supabase")
+    logger.info(f"ETAPA 3: Embedding ({backend}) + inserção no Qdrant")
     logger.info("═" * 60)
 
     embedder = AneelEmbedder(backend=backend, batch_size=batch_size)
@@ -183,7 +181,7 @@ def run_ingestion(
     logger.info("═" * 60)
     logger.info(f"  Documentos parseados:  {stats['n_docs']}")
     logger.info(f"  Chunks gerados:        {stats['n_chunks']}")
-    logger.info(f"  Chunks no Supabase:    {stats.get('final_count', 'N/A')}")
+    logger.info(f"  Chunks no Qdrant:    {stats.get('final_count', 'N/A')}")
     logger.info(f"  Tempo total:           {stats['elapsed']:.1f}s")
 
     return stats
@@ -195,7 +193,7 @@ def run_ingestion(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Pipeline de ingestão ANEEL → Supabase"
+        description="Pipeline de ingestão ANEEL → Qdrant"
     )
     parser.add_argument(
         "--data-dir", default="base",
@@ -207,7 +205,7 @@ def main():
     )
     parser.add_argument(
         "--dry-run", action="store_true",
-        help="Executa sem inserir no Supabase"
+        help="Executa sem inserir no Qdrant"
     )
     parser.add_argument(
         "--clear", action="store_true",

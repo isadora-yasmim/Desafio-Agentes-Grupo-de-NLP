@@ -15,16 +15,19 @@ class QdrantRetriever:
     def search(self, query: str, k: int = 5):
         vector = self.embeddings.embed_query(query)
 
-        results = self.client.search(
+        response = self.client.query_points(
             collection_name=self.collection,
-            query_vector=vector,
-            limit=k
+            query=vector,
+            limit=k,
         )
+
+        results = response.points
 
         return [
             {
                 "content": r.payload.get("content"),
-                "metadata": r.payload
+                "metadata": r.payload.get("metadata", {}),
+                "score": r.score,
             }
             for r in results
         ]
