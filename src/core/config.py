@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_KEY: str = ""   # service_role key (não a anon!)
     SUPABASE_TABLE: str = "documents"
 
+    # ── Qdrant ───────────────────────────────────────────────────────────────
+    QDRANT_URL: str = "http://localhost:6333"
+    QDRANT_COLLECTION: str = "documents"
+    QDRANT_API_KEY: str | None = None
+
     # ── Retrieval ────────────────────────────────────────────────────────────
     RETRIEVAL_K_SEMANTIC: int = 20   # chunks para busca semântica
     RETRIEVAL_K_BM25: int = 20       # chunks para BM25
