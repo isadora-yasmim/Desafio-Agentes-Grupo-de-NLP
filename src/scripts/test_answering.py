@@ -8,10 +8,8 @@ def main():
     retriever = QdrantRetriever()
     answerer = Answerer()
 
-    # 1. Primeiro busca os chunks
     chunks = retriever.search(query)
 
-    # 2. Depois imprime os chunks recuperados
     print("\n" + "=" * 80)
     print("CHUNKS RECUPERADOS")
     print("=" * 80)
@@ -21,19 +19,33 @@ def main():
 
         print(f"\n--- Chunk {i} ---")
         print("Título:", metadata.get("title") or metadata.get("titulo"))
-        print("Tipo:", metadata.get("tipo_ato"))
+        print("Tipo:", metadata.get("tipo_ato") or metadata.get("type"))
         print("Score:", chunk.get("score"))
         print("Conteúdo:")
         print((chunk.get("content") or "")[:1000])
 
-    # 3. Depois chama o Answering
     print("\n" + "=" * 80)
     print("RESPOSTA FINAL")
     print("=" * 80)
 
     answer = answerer.answer(query=query, chunks=chunks)
 
-    print(answer)
+    print(answer["answer"])
+
+    print("\n" + "=" * 80)
+    print("METADADOS DA RESPOSTA")
+    print("=" * 80)
+    print("Tipo:", answer["type"])
+    print("Confiança:", answer["confidence"])
+    print("Usou RAG:", answer["used_rag"])
+
+    if answer.get("sources"):
+        print("\nFontes:")
+        for source in answer["sources"]:
+            print(
+                f"- {source.get('type')} — {source.get('title')} "
+                f"(score: {source.get('score')})"
+            )
 
 
 if __name__ == "__main__":
