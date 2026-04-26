@@ -3,7 +3,7 @@ from retrieval.reranker import get_reranker
 
 
 def main():
-    query = "Quais documentos falam sobre tarifas de energia elétrica?"
+    query = "Quais documentos falam sobre regulação da ANEEL?"
 
     retriever = build_semantic_retriever(k=5)
     docs = retriever.invoke(query)

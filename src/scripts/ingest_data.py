@@ -103,33 +103,61 @@ def run_ingestion(
     logger.info("═" * 60)
 
     chunk_config = ChunkConfig(
-        window_size=3,
-        window_overlap=1,
-        min_ementa_sentences=2,
-        include_full_doc_chunk=True,
-        include_window_chunks=True,
+    window_size=3,
+    window_overlap=1,
+    min_ementa_sentences=1,
+    include_summary_chunk=True,
+    include_window_chunks=True,
+    include_keyword_chunk=True,
     )
+
     chunker = AneelChunker(config=chunk_config)
     chunks = chunker.chunk_documents(docs)
 
     stats["n_chunks"] = len(chunks)
 
     # Estatísticas dos chunks
-    full_chunks = [c for c in chunks if c.metadata["chunk_type"] == "full_doc"]
-    win_chunks  = [c for c in chunks if c.metadata["chunk_type"] == "window"]
-    logger.info(f"Total de chunks: {len(chunks)}")
-    logger.info(f"  → full_doc: {len(full_chunks)}")
-    logger.info(f"  → window:   {len(win_chunks)}")
+    summary_count = sum(
+    1 for chunk in chunks
+    if chunk.metadata.get("chunk_type") == "document_summary"
+    )
+
+    window_count = sum(
+        1 for chunk in chunks
+        if chunk.metadata.get("chunk_type") == "semantic_window"
+    )
+
+    keyword_count = sum(
+        1 for chunk in chunks
+        if chunk.metadata.get("chunk_type") == "keyword_context"
+    )
+
+    logger.info(f"  → document_summary: {summary_count}")
+    logger.info(f"  → semantic_window:  {window_count}")
+    logger.info(f"  → keyword_context:  {keyword_count}")
 
     avg_len = sum(len(c.page_content) for c in chunks) / len(chunks)
     logger.info(f"  → Tamanho médio: {avg_len:.0f} chars")
 
     if dry_run:
         logger.info("\n[DRY RUN] Pulando inserção no Supabase.")
-        logger.info("Exemplo de chunk gerado:")
-        logger.info(chunks[0].page_content)
-        stats["elapsed"] = time.time() - start
-        return stats
+        for chunk_type in ["document_summary", "semantic_window", "keyword_context"]:
+            example = next(
+                (
+                    chunk for chunk in chunks
+                    if chunk.metadata.get("chunk_type") == chunk_type
+                ),
+                None,
+            )
+
+        if example:
+            logger.info(f"\nExemplo de chunk_type={chunk_type}:")
+            #logger.info("Exemplo de chunk gerado:")
+            #logger.info(chunks[0].page_content)
+            logger.info(example.page_content[:1000])
+            logger.info(f"Metadados: {example.metadata}")
+            stats["elapsed"] = time.time() - start
+            return stats
 
     # ── 3. Embedding + Upsert ────────────────────────────────────────────────
     logger.info("\n" + "═" * 60)
