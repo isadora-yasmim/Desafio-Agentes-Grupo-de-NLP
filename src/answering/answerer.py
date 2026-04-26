@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from answering.llm import build_llm
 from answering.prompt import build_answer_prompt
 
@@ -20,6 +22,21 @@ DOCUMENT_LISTING_KEYWORDS = [
     "documentos sobre",
     "quais atos",
     "atos sobre",
+]
+
+
+HIGHLIGHT_TERMS = [
+    "tarifa social",
+    "tarifa social de energia elétrica",
+    "tsee",
+    "baixa renda",
+    "cde",
+    "conta de desenvolvimento energético",
+    "desconto tarifário",
+    "benefício tarifário",
+    "subsídio tarifário",
+    "subvenção econômica",
+    "aneel",
 ]
 
 
@@ -69,8 +86,95 @@ def extract_sources(chunks: list[dict]) -> list[dict]:
     return sources
 
 
-# 🔥 FUNÇÃO CORRIGIDA AQUI
-def format_document_listing(chunks: list[dict]) -> str:
+def extract_query_terms(query: str) -> list[str]:
+    """
+    Extrai termos úteis da query para destacar na evidência.
+    Remove palavras muito genéricas e mantém expressões importantes.
+    """
+    query_lower = query.lower()
+
+    stopwords = {
+        "quais",
+        "documentos",
+        "falam",
+        "sobre",
+        "liste",
+        "atos",
+        "os",
+        "as",
+        "de",
+        "da",
+        "do",
+        "das",
+        "dos",
+        "um",
+        "uma",
+        "e",
+        "a",
+        "o",
+    }
+
+    terms = []
+
+    for term in HIGHLIGHT_TERMS:
+        if term in query_lower:
+            terms.append(term)
+
+    for word in re.findall(r"\b[\wÀ-ÿ]{3,}\b", query_lower):
+        if word not in stopwords:
+            terms.append(word)
+
+    # Remove duplicados preservando ordem
+    unique_terms = []
+    seen = set()
+
+    for term in terms:
+        normalized = term.lower().strip()
+        if normalized not in seen:
+            seen.add(normalized)
+            unique_terms.append(term)
+
+    # Termos maiores primeiro evita destacar "tarifa" antes de "tarifa social"
+    return sorted(unique_terms, key=len, reverse=True)
+
+
+def highlight_terms(text: str, query: str) -> str:
+    """
+    Destaca termos relevantes usando Markdown (**termo**).
+    Funciona bem em terminal, Streamlit, Markdown e frontends web.
+    """
+    if not text:
+        return text
+
+    terms = extract_query_terms(query)
+
+    highlighted = text
+
+    for term in terms:
+        pattern = re.compile(rf"(?<!\*)\b({re.escape(term)})\b(?!\*)", re.IGNORECASE)
+        highlighted = pattern.sub(r"**\1**", highlighted)
+
+    return highlighted
+
+
+def clean_evidence(content: str, doc_type: str, title: str) -> str:
+    evidence = content
+
+    for text in [
+        f"Tipo do ato: {doc_type}",
+        f"Título: {title}",
+    ]:
+        evidence = evidence.replace(text, "")
+
+    evidence = " ".join(evidence.split()).strip()
+
+    if not evidence:
+        return "Sem evidência textual disponível."
+
+    return evidence
+
+
+def format_document_listing(chunks: list[dict], query: str) -> str:
     documents = []
 
     for chunk in chunks:
@@ -97,19 +201,8 @@ def format_document_listing(chunks: list[dict]) -> str:
             f"{score:.4f}" if isinstance(score, (int, float)) else "não informado"
         )
 
-        # 🔥 LIMPEZA DE EVIDÊNCIA
-        evidence = content
-
-        for text in [
-            f"Tipo do ato: {doc_type}",
-            f"Título: {title}",
-        ]:
-            evidence = evidence.replace(text, "")
-
-        evidence = " ".join(evidence.split()).strip()
-
-        if not evidence:
-            evidence = "Sem evidência textual disponível."
+        evidence = clean_evidence(content, doc_type, title)
+        evidence = highlight_terms(evidence, query)
 
         documents.append(
             f"- **{doc_type} — {title}**\n"
@@ -156,7 +249,7 @@ Regras:
 
     def answer(self, query: str, chunks: list[dict]) -> dict:
 
-        # 🔥 1. DOCUMENT LISTING
+        # 1. DOCUMENT LISTING
         if is_document_listing_query(query):
             if not chunks:
                 return {
@@ -169,13 +262,13 @@ Regras:
 
             return {
                 "type": "document_listing",
-                "answer": format_document_listing(chunks),
+                "answer": format_document_listing(chunks, query),
                 "confidence": "média",
                 "sources": extract_sources(chunks),
                 "used_rag": True,
             }
 
-        # 🔥 2. CONCEITUAL
+        # 2. CONCEITUAL
         if is_conceptual_query(query):
             explanation = self._conceptual_answer(query)
 
@@ -208,7 +301,7 @@ Regras:
                 "used_rag": False,
             }
 
-        # 🔥 3. FACTUAL (RAG)
+        # 3. FACTUAL
         if not chunks:
             return {
                 "type": "factual",
