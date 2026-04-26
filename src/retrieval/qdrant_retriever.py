@@ -161,9 +161,13 @@ class QdrantRetriever:
         theme: str | None = None,
     ) -> list[dict]:
         expanded_query = build_expanded_query(query)
+
+        print("\n🔎 Query original:", query)
+        print("🚀 Query expandida:", expanded_query)
+
         vector = self.embeddings.embed_query(expanded_query)
 
-        fetch_k = fetch_k or k * 6
+        fetch_k = fetch_k or k * 10
 
         query_filter = self._build_filter(
             tipo_ato=tipo_ato,
@@ -185,6 +189,12 @@ class QdrantRetriever:
             expanded_query=expanded_query,
         )
 
+        # 🔥 FILTRO DE QUALIDADE DE CHUNK
+        candidates = [
+            c for c in candidates
+            if c.get("content") and len(c.get("content")) > 100
+        ]
+        
         return self._apply_reranking_with_fallback(
             query=query,
             candidates=candidates,
