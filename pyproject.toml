@@ -21,7 +21,6 @@ sentence-transformers = "^3.0"   # BGE reranker + E5
 torch = "^2.3"                    # backend do sentence-transformers
 
 # Vector DB
-supabase = "^2.4"
 
 # LLM
 openai = "^1.40"
@@ -43,6 +42,9 @@ streamlit = "^1.38"
 # Utilitários
 tqdm = "^4.66"
 tenacity = "^8.5"    # retry para chamadas de API
+supabase = "2.22.0"
+postgrest = "1.0.0"
+supabase-auth = "2.22.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.0"
