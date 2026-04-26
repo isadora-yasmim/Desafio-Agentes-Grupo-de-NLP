@@ -1,21 +1,122 @@
-# Python
+# ==============================
+# 🔐 ENV 
+# ==============================
+.env
+.env.*
+!.env.example
+
+# ==============================
+# 🐍 PYTHON
+# ==============================
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+*$py.class
 
-# Ambiente virtual
+# Distribuição / build
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
 .venv/
 venv/
+env/
+ENV/
 
-# Variáveis de ambiente
-.env
+# Poetry (RECOMENDADO manter o lock)
+# NÃO ignore o poetry.lock em produção
 
-# Logs
-*.log
+# Pytest / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
 
-# VSCode
+# ==============================
+# 📊 DADOS / RAG (CRÍTICO)
+# ==============================
+# Dados grandes não devem ir pro Git
+base/
+data/
+datasets/
+*.csv
+*.parquet
+*.jsonl
+
+# (Opcional) Se quiser manter exemplos:
+# !base/sample.json
+
+# ==============================
+# ⚙️ CACHE / TEMP
+# ==============================
+.cache/
+.tmp/
+tmp/
+temp/
+
+# ==============================
+# 🌐 NODE / FRONTEND
+# ==============================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build frontend
+.next/
+dist/
+out/
+build/
+
+# ==============================
+# 🐳 DOCKER
+# ==============================
+.docker/
+docker-data/
+*.pid
+
+# ==============================
+# 💻 IDEs / EDITORES
+# ==============================
 .vscode/
+.idea/
 
-# Jupyter
+# MacOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# ==============================
+# 📓 JUPYTER
+# ==============================
 .ipynb_checkpoints/
+
+# ==============================
+# 📊 STREAMLIT
+# ==============================
+.streamlit/secrets.toml
+
+# ==============================
+# 🔐 CHAVES / SEGURANÇA
+# ==============================
+*.pem
+*.key
+*.crt
+
+# ==============================
+# 🧪 OUTPUTS / RESULTADOS
+# ==============================
+reports/
+outputs/
+evaluation_results/
+
+# ==============================
+# 🧷 MISC
+# ==============================
+*.swp
+*.swo

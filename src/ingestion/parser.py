@@ -1,30 +1,19 @@
 """
-parser.py
----------
-Responsável por ler os JSONs da ANEEL e normalizar cada registro
-em um objeto estruturado (AneelDocument) pronto para o chunker.
+ingestion/parser.py
+-------------------
+Lê os JSONs da ANEEL e normaliza cada registro em AneelDocument.
 
-Estrutura do JSON de entrada:
-{
-  "2016-12-30": {
-    "status": "23 registro(s).",
-    "registros": [
-      {
-        "titulo": "DSP - DESPACHO 3284/2016",
-        "autor": "ANEEL",
-        "esfera": "Esfera:Outros",
-        "situacao": "Situação:NÃO CONSTA REVOGAÇÃO EXPRESSA",
-        "assinatura": "Assinatura:15/12/2016",
-        "publicacao": "Publicação:30/12/2016",
-        "assunto": "Assunto:Acatamento",
-        "ementa": "...",
-        "pdfs": [{"tipo": "...", "url": "...", "arquivo": "...", "baixado": true}]
-      }
-    ]
-  }
-}
+Correções em relação à versão anterior:
+  - _safe_str(): trata campos que existem no JSON mas têm valor null (None).
+    dict.get("campo", "") só usa o fallback quando a chave NÃO existe;
+    quando a chave existe com valor None, retorna None mesmo.
+    Isso causava os erros "expected string, got NoneType" e
+    "'NoneType' object has no attribute 'strip'".
+  - _normalize_date(): agora aceita None sem quebrar.
+  - _parse_registro(): usa _safe_str() em todos os campos de texto.
+  - Documentos sem título real (None/vazio) recebem título gerado
+    a partir do tipo do ato + data, em vez de serem descartados.
 """
-
 from __future__ import annotations
 
 import json
@@ -52,57 +41,36 @@ class PdfRef:
 
 @dataclass
 class AneelDocument:
-    """Representa um único ato normativo/despacho da ANEEL."""
-
-    # Identificação
     titulo: str
     autor: str
     material: str
-
-    # Datas (normalizadas para YYYY-MM-DD)
     data_publicacao: str
     data_assinatura: str
-
-    # Classificação
     esfera: str
     situacao: str
     assunto: str
-
-    # Conteúdo principal
     ementa: str | None
-
-    # Referências aos PDFs
     pdfs: list[PdfRef] = field(default_factory=list)
-
-    # Metadados extras
     numeracao_item: str = ""
-    data_chave: str = ""          # data original do dict raiz (ex: "2016-12-30")
-
-    # -----------------------------------------------------------------------
-    # Helpers
-    # -----------------------------------------------------------------------
+    data_chave: str = ""
 
     @property
     def doc_id(self) -> str:
-        """ID único: data_publicacao + titulo normalizado."""
         slug = re.sub(r"[^a-z0-9]", "_", self.titulo.lower())
         return f"{self.data_publicacao}__{slug}"
 
     @property
     def tipo_ato(self) -> str:
-        """Extrai o tipo de ato do título: DSP, RES, NOR, etc."""
         match = re.match(r"^([A-Z]+)\s*-", self.titulo)
         return match.group(1) if match else "OUTROS"
 
     @property
     def numero_ato(self) -> str:
-        """Extrai o número do ato (ex: '3284/2016')."""
         match = re.search(r"(\d{3,5}/\d{4})", self.titulo)
         return match.group(1) if match else ""
 
     @property
     def text_content(self) -> str:
-        """Texto consolidado do documento para embedding/BM25."""
         parts = [
             self.titulo,
             f"Autor: {self.autor}",
@@ -114,7 +82,6 @@ class AneelDocument:
         return "\n".join(parts)
 
     def to_metadata(self) -> dict:
-        """Dicionário de metadados para armazenar no vector store."""
         return {
             "doc_id":           self.doc_id,
             "titulo":           self.titulo,
@@ -135,31 +102,81 @@ class AneelDocument:
 
 
 # ---------------------------------------------------------------------------
-# Funções de limpeza
+# Helpers None-safe
 # ---------------------------------------------------------------------------
 
-def _clean_field(value: str | None, prefix: str = "") -> str:
-    """Remove prefixos como 'Situação:', 'Esfera:', etc. e faz strip."""
-    if not value:
+def _safe_str(value, fallback: str = "") -> str:
+    """
+    Converte qualquer valor para str de forma segura.
+
+    O problema: dict.get("campo", "fallback") SÓ usa o fallback quando
+    a chave não existe no dicionário. Quando a chave existe mas vale None
+    (JSON: null), get() retorna None — e chamadas como .strip() ou re.sub()
+    explodem com TypeError/AttributeError.
+
+    Esta função resolve os três casos:
+      - chave ausente    → get() retorna ""  → _safe_str("") → ""
+      - chave com None   → get() retorna None → _safe_str(None) → fallback
+      - chave com string → get() retorna str  → _safe_str(str) → str limpo
+    """
+    if value is None:
+        return fallback
+    return str(value).strip()
+
+
+def _clean_field(value, prefix: str = "") -> str:
+    """Remove prefixo e artefatos textuais. None-safe."""
+    text = _safe_str(value)
+    if not text:
         return ""
-    cleaned = value.replace(prefix, "").strip()
-    # Remove o "Imprimir" que aparece no final de algumas ementas
+    cleaned = text.replace(prefix, "").strip()
     cleaned = re.sub(r"\s*Imprimir\s*$", "", cleaned).strip()
     return cleaned
 
 
-def _normalize_date(raw: str) -> str:
+def _normalize_date(raw) -> str:
     """
-    Converte datas do formato 'DD/MM/YYYY' ou 'Assinatura:DD/MM/YYYY'
-    para 'YYYY-MM-DD'. Retorna string vazia se não conseguir parsear.
+    Converte 'DD/MM/YYYY' ou 'Prefixo:DD/MM/YYYY' → 'YYYY-MM-DD'.
+    Aceita None sem quebrar.
     """
-    # Remove prefixo
-    raw = re.sub(r"^[^:]+:", "", raw).strip()
-    match = re.match(r"(\d{2})/(\d{2})/(\d{4})", raw)
+    text = _safe_str(raw)
+    if not text:
+        return ""
+    # Remove prefixo como "Assinatura:", "Publicação:", etc.
+    text = re.sub(r"^[^:]+:", "", text).strip()
+    match = re.match(r"(\d{2})/(\d{2})/(\d{4})", text)
     if match:
         d, m, y = match.groups()
         return f"{y}-{m}-{d}"
-    return raw
+    return text
+
+
+def _parse_pdfs(raw_pdfs) -> list[PdfRef]:
+    """Parseia lista de PDFs com tolerância a None e campos ausentes."""
+    if not raw_pdfs or not isinstance(raw_pdfs, list):
+        return []
+    result = []
+    for p in raw_pdfs:
+        if not isinstance(p, dict):
+            continue
+        result.append(PdfRef(
+            tipo=_safe_str(p.get("tipo")),
+            url=_safe_str(p.get("url")),
+            arquivo=_safe_str(p.get("arquivo")),
+            baixado=bool(p.get("baixado", False)),
+        ))
+    return result
+
+
+def _build_fallback_titulo(reg: dict, data_chave: str) -> str:
+    """
+    Gera um título descritivo quando o campo titulo é None/vazio.
+    Ex: "DSP SEM TÍTULO - 2021-03-15"
+    Evita descartar o documento só porque falta o título.
+    """
+    numeracao = _safe_str(reg.get("numeracaoItem"), "?")
+    material  = _safe_str(reg.get("material"), "DOCUMENTO")
+    return f"{material} SEM TÍTULO (item {numeracao}) - {data_chave}"
 
 
 # ---------------------------------------------------------------------------
@@ -167,14 +184,6 @@ def _normalize_date(raw: str) -> str:
 # ---------------------------------------------------------------------------
 
 class AneelJsonParser:
-    """
-    Parseia um ou vários arquivos JSON da ANEEL e emite AneelDocuments.
-
-    Uso:
-        parser = AneelJsonParser()
-        for doc in parser.parse_file("base/legislacao_2016.json"):
-            print(doc.titulo)
-    """
 
     def parse_file(self, path: str | Path) -> Iterator[AneelDocument]:
         path = Path(path)
@@ -185,6 +194,7 @@ class AneelJsonParser:
 
         total = 0
         skipped = 0
+        recovered = 0
 
         for data_chave, dia_data in data.items():
             registros = dia_data.get("registros", [])
@@ -192,83 +202,64 @@ class AneelJsonParser:
                 continue
 
             for reg in registros:
+                if not isinstance(reg, dict):
+                    skipped += 1
+                    continue
                 try:
-                    doc = self._parse_registro(reg, data_chave)
+                    doc, was_recovered = self._parse_registro(reg, data_chave)
                     total += 1
+                    if was_recovered:
+                        recovered += 1
                     yield doc
                 except Exception as e:
                     skipped += 1
+                    titulo_raw = reg.get("titulo", "?")
                     logger.warning(
-                        f"Skipping registro '{reg.get('titulo', '?')}': {e}"
+                        f"Skipping '{titulo_raw}' [{data_chave}]: {type(e).__name__}: {e}"
                     )
 
+        suffix = f", {recovered} recuperados com título gerado" if recovered else ""
         logger.info(
-            f"{path.name}: {total} documentos parseados, {skipped} ignorados."
+            f"{path.name}: {total} docs parseados{suffix}, {skipped} ignorados."
         )
 
     def parse_directory(self, directory: str | Path) -> Iterator[AneelDocument]:
-        """Parseia todos os JSONs de um diretório."""
         directory = Path(directory)
         json_files = sorted(directory.glob("*.json"))
-
         if not json_files:
             logger.warning(f"Nenhum JSON encontrado em: {directory}")
             return
-
         for json_file in json_files:
             yield from self.parse_file(json_file)
 
     # -----------------------------------------------------------------------
-    # Internos
-    # -----------------------------------------------------------------------
 
-    def _parse_registro(self, reg: dict, data_chave: str) -> AneelDocument:
-        pdfs = [
-            PdfRef(
-                tipo=p.get("tipo", ""),
-                url=p.get("url", ""),
-                arquivo=p.get("arquivo", ""),
-                baixado=p.get("baixado", False),
-            )
-            for p in reg.get("pdfs", [])
-        ]
+    def _parse_registro(self, reg: dict, data_chave: str) -> tuple[AneelDocument, bool]:
+        """
+        Retorna (AneelDocument, was_recovered).
+        was_recovered=True quando o título foi gerado por fallback.
+        """
+        titulo_raw = reg.get("titulo")
+        titulo = _safe_str(titulo_raw)
+        was_recovered = False
 
-        return AneelDocument(
-            titulo=reg.get("titulo", "").strip(),
-            autor=reg.get("autor", "").strip(),
-            material=reg.get("material", "").strip(),
-            data_publicacao=_normalize_date(reg.get("publicacao", "")),
-            data_assinatura=_normalize_date(reg.get("assinatura", "")),
-            esfera=_clean_field(reg.get("esfera", ""), "Esfera:"),
-            situacao=_clean_field(reg.get("situacao", ""), "Situação:"),
-            assunto=_clean_field(reg.get("assunto", ""), "Assunto:"),
+        # Título ausente ou nulo: gera fallback em vez de descartar
+        if not titulo:
+            titulo = _build_fallback_titulo(reg, data_chave)
+            was_recovered = True
+
+        doc = AneelDocument(
+            titulo=titulo,
+            autor=_safe_str(reg.get("autor")),
+            material=_safe_str(reg.get("material")),
+            data_publicacao=_normalize_date(reg.get("publicacao")),
+            data_assinatura=_normalize_date(reg.get("assinatura")),
+            esfera=_clean_field(reg.get("esfera"),   "Esfera:"),
+            situacao=_clean_field(reg.get("situacao"), "Situação:"),
+            assunto=_clean_field(reg.get("assunto"),  "Assunto:"),
             ementa=_clean_field(reg.get("ementa")) or None,
-            pdfs=pdfs,
-            numeracao_item=reg.get("numeracaoItem", ""),
+            pdfs=_parse_pdfs(reg.get("pdfs")),
+            numeracao_item=_safe_str(reg.get("numeracaoItem")),
             data_chave=data_chave,
         )
-
-
-# ---------------------------------------------------------------------------
-# CLI rápida para testar
-# ---------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    import sys
-
-    path = sys.argv[1] if len(sys.argv) > 1 else "base"
-    parser = AneelJsonParser()
-
-    docs = list(parser.parse_directory(path))
-    print(f"\nTotal de documentos: {len(docs)}")
-    print("\nExemplo:")
-    if docs:
-        d = docs[0]
-        print(f"  titulo:          {d.titulo}")
-        print(f"  tipo_ato:        {d.tipo_ato}")
-        print(f"  numero_ato:      {d.numero_ato}")
-        print(f"  data_publicacao: {d.data_publicacao}")
-        print(f"  assunto:         {d.assunto}")
-        print(f"  tem_ementa:      {d.ementa is not None}")
-        print(f"  doc_id:          {d.doc_id}")
-        print(f"\n  text_content:\n{d.text_content}")
+        return doc, was_recovered
