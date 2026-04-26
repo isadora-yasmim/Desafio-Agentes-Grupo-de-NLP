@@ -188,6 +188,15 @@ docker-compose up --build
 # Rodar aplicação
 streamlit run ui/app.py
 ```
+### RAG + fallback + transparência + decisão
+
+| Situação          | Resultado          |
+| ----------------- | ------------------ |
+| docs bons         | RAG + explicação   |
+| docs fracos       | explicação + aviso |
+| docs inexistentes | aviso + fallback   |
+| pergunta factual  | RAG puro           |
+
 
 
 

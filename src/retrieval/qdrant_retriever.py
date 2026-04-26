@@ -4,9 +4,13 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 
 from core.config import settings
+from core.logger import get_logger
 from ingestion.embedder import get_embeddings
 from retrieval.query_expansion import build_expanded_query
 from retrieval.reranker import CrossEncoderReranker
+
+
+logger = get_logger(__name__)
 
 
 TECHNICAL_ACRONYMS = {
@@ -88,13 +92,17 @@ class QdrantRetriever:
         if not self.reranker:
             return False
 
-        # Siglas técnicas costumam ser melhor resolvidas pela busca vetorial/keyword_context.
         if upper_tokens.intersection(TECHNICAL_ACRONYMS):
             return False
 
         return True
 
-    def _deduplicate_points(self, points, query: str, expanded_query: str) -> list[dict]:
+    def _deduplicate_points(
+        self,
+        points,
+        query: str,
+        expanded_query: str,
+    ) -> list[dict]:
         seen_docs = set()
         unique_results = []
 
@@ -135,7 +143,8 @@ class QdrantRetriever:
                 results=candidates,
                 top_k=k,
             )
-        except Exception:
+        except Exception as error:
+            logger.warning("Falha ao aplicar reranking. Usando ranking original: %s", error)
             return candidates[:k]
 
         if not reranked:
@@ -143,9 +152,6 @@ class QdrantRetriever:
 
         best_rerank_score = reranked[0].get("rerank_score")
 
-        # Cross-encoder pode retornar scores negativos para queries em que ele
-        # não conseguiu estabelecer boa relevância. Nesses casos, preferimos
-        # manter o ranking original do Qdrant.
         if best_rerank_score is None or best_rerank_score < 0:
             return candidates[:k]
 
@@ -161,9 +167,13 @@ class QdrantRetriever:
         theme: str | None = None,
     ) -> list[dict]:
         expanded_query = build_expanded_query(query)
+
+        logger.debug("Query original: %s", query)
+        logger.debug("Query expandida: %s", expanded_query)
+
         vector = self.embeddings.embed_query(expanded_query)
 
-        fetch_k = fetch_k or k * 6
+        fetch_k = fetch_k or k * 10
 
         query_filter = self._build_filter(
             tipo_ato=tipo_ato,
@@ -184,6 +194,14 @@ class QdrantRetriever:
             query=query,
             expanded_query=expanded_query,
         )
+
+        candidates = [
+            candidate
+            for candidate in candidates
+            if candidate.get("content") and len(candidate.get("content")) > 100
+        ]
+
+        logger.debug("Total de candidatos após deduplicação e filtro: %s", len(candidates))
 
         return self._apply_reranking_with_fallback(
             query=query,
