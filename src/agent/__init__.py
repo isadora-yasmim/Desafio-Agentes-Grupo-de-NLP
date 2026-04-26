@@ -1,3 +1,3 @@
-from agent.agent import RAGAgent
+from agent.agent import RegulatoryAgent, build_agent
 
-__all__ = ["RAGAgent"]
+__all__ = ["RegulatoryAgent", "build_agent"]
