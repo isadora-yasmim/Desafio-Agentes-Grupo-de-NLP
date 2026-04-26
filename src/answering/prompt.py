@@ -1,40 +1,90 @@
 from __future__ import annotations
 
+import re
+
 
 SYSTEM_PROMPT = """
 Você é um assistente especializado em documentos regulatórios do setor elétrico brasileiro.
 
-Sua tarefa é responder à pergunta do usuário com base exclusivamente no contexto recuperado.
+Sua tarefa é responder à pergunta do usuário com base EXCLUSIVAMENTE no contexto recuperado abaixo.
 
-Regras obrigatórias:
-1. Use apenas informações presentes nos chunks fornecidos.
-2. Não invente, complete ou suponha informações ausentes.
-3. Se o contexto não responder à pergunta, diga claramente:
+═══════════════════════════════════════════
+REGRAS DE CONTEÚDO
+═══════════════════════════════════════════
+
+1. Use apenas informações presentes nos chunks fornecidos. Nunca invente, complete ou suponha.
+
+2. Se o contexto não responder à pergunta, responda exatamente:
    "Não foi possível responder com segurança com base nos documentos recuperados."
-4. Preserve termos técnicos e siglas regulatórias, como TE, TUSD, TUST, TEO, RTP, PRORET, CDE, ESS, EER, ONS, CCEE, MME, ANEEL, REH, DSP e PRT.
-5. Diferencie relações diretas e indiretas:
-   - Direta: o documento trata explicitamente do termo ou tema perguntado.
-   - Indireta: o documento trata de tema relacionado, como revisão tarifária, componentes tarifários ou encargos, mas não responde diretamente à pergunta.
-6. Ao citar documentos, explique brevemente por que cada um é relevante.
-7. Não liste documentos sem relacioná-los à pergunta.
-8. Se houver incerteza, deixe a limitação explícita.
-9. Para cada documento citado, utilize evidência explícita do conteúdo:
-   - Inclua um trecho resumido OU mencione o ponto específico do texto que comprova a relevância.
-   - NÃO use justificativas genéricas como "trata de tarifas" sem indicar o que exatamente no texto sustenta isso.
+   Em seguida, explique brevemente o que os documentos de fato abordam.
 
-Formato da resposta:
-- Resposta direta
-- Documentos relevantes
-- Observações ou limitações, se houver
+3. Preserve termos técnicos e siglas: TE, TUSD, TUST, TEO, RTP, PRORET, CDE, ESS, EER,
+   ONS, CCEE, MME, ANEEL, REH, DSP, PRT, ACP etc.
 
-Estilo:
-- Responda em português do Brasil.
-- Seja técnico, claro e objetivo.
-- Evite respostas longas quando a pergunta for simples.
+4. Diferencie relações:
+   - DIRETA: responde explicitamente
+   - INDIRETA: tema relacionado
+   - IRRELEVANTE: não inclua
+
+═══════════════════════════════════════════
+REGRA CRÍTICA — EVIDÊNCIA VERIFICÁVEL
+═══════════════════════════════════════════
+
+- A evidência deve vir do conteúdo textual do documento
+- É PROIBIDO usar como evidência:
+  - títulos
+  - metadados
+  - "temas inferidos"
+  - "termos encontrados"
+- Use um trecho real, específico e com contexto
 """
 
 
-def format_context(chunks: list[dict]) -> str:
+# 🔥 1. LIMPEZA DE METADADOS
+def clean_content(text: str) -> str:
+    lines = text.split("\n")
+
+    filtered = []
+
+    for line in lines:
+        line_lower = line.lower()
+
+        if any(prefix in line_lower for prefix in [
+            "tipo do ato:",
+            "título:",
+            "temas inferidos:",
+            "termos encontrados:",
+            "score",
+        ]):
+            continue
+
+        filtered.append(line)
+
+    return "\n".join(filtered).strip()
+
+
+# 🔥 2. EXTRAÇÃO DE SENTENÇA RELEVANTE
+def extract_relevant_snippet(content: str, query: str) -> str:
+    sentences = re.split(r'(?<=[.!?])\s+', content)
+
+    query_terms = query.lower().split()
+
+    scored = []
+
+    for sentence in sentences:
+        score = sum(1 for term in query_terms if term in sentence.lower())
+        if score > 0:
+            scored.append((score, sentence))
+
+    if not scored:
+        return content[:300]
+
+    best_sentence = sorted(scored, reverse=True)[0][1]
+
+    return best_sentence.strip()
+
+
+def format_context(chunks: list[dict], query: str) -> str:
     context_parts = []
 
     for index, chunk in enumerate(chunks, start=1):
@@ -64,25 +114,38 @@ def format_context(chunks: list[dict]) -> str:
         chunk_type = metadata.get("chunk_type") or "Chunk sem tipo"
         score = chunk.get("score")
 
-        content = (chunk.get("content") or "").strip()
+        raw_content = (chunk.get("content") or "").strip()
 
-        if not content:
+        if not raw_content:
             continue
 
-        score_text = f"{score:.4f}" if isinstance(score, int | float) else "Score não informado"
+        # 🔥 PASSO 1: limpar metadados
+        cleaned = clean_content(raw_content)
+
+        if not cleaned:
+            continue
+
+        # 🔥 PASSO 2: extrair sentença relevante
+        content = extract_relevant_snippet(cleaned, query)
+
+        # 🔥 PASSO 3: reduzir tamanho
+        content = content[:300]
+
+        score_text = (
+            f"{score:.4f}" if isinstance(score, (int, float)) else "Score não informado"
+        )
 
         context_parts.append(
-            f"""
-            [CHUNK {index}]
-            Título: {title}
-            Tipo do ato: {doc_type}
-            Tipo do chunk: {chunk_type}
-            Fonte: {source}
-            Score de recuperação: {score_text}
+            f"""[CHUNK {index}]
+Título: {title}
+Tipo do ato: {doc_type}
+Tipo do chunk: {chunk_type}
+Fonte: {source}
+Score: {score_text}
 
-            Conteúdo:
-            {content}
-            """
+Trecho relevante:
+{content}
+---"""
         )
 
     if not context_parts:
@@ -92,29 +155,36 @@ def format_context(chunks: list[dict]) -> str:
 
 
 def build_answer_prompt(query: str, chunks: list[dict]) -> str:
-    context = format_context(chunks)
+    context = format_context(chunks, query)
 
     return f"""
-    {SYSTEM_PROMPT}
+{SYSTEM_PROMPT}
 
-    Contexto recuperado:
-    {context}
+═══════════════════════════════════════════
+CONTEXTO RECUPERADO
+═══════════════════════════════════════════
 
-    Pergunta do usuário:
-    {query}
+{context}
 
-    Responda no seguinte formato:
+═══════════════════════════════════════════
+PERGUNTA DO USUÁRIO
+═══════════════════════════════════════════
 
-    Resposta direta:
-    ...
+{query}
 
-    Documentos relevantes:
-    1. [Título do documento]
-    - Relação com a pergunta: direta ou indireta
-    - Evidência no texto: ...
+═══════════════════════════════════════════
+FORMATO OBRIGATÓRIO
+═══════════════════════════════════════════
 
-    Observações:
-    ...
+Resposta direta:
+...
 
-    Resposta:
-    """
+Documentos relevantes:
+1. [Tipo] — [Título]
+   - Relação: direta | indireta
+   - Por que é relevante: ...
+   - Trecho verificável: "..."
+
+Observações:
+...
+"""
