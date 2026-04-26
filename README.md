@@ -13,6 +13,19 @@
   <img src="https://img.shields.io/badge/UI-Streamlit-red?style=for-the-badge" />
 </p>
 
+---
+
+## 📑 Índice
+
+- [🏗️ Estrutura do Projeto](#estrutura-do-projeto)
+- [⚙️ Stack](#stack)
+- [🧠 Arquitetura](#arquitetura)
+- [🚀 Diferenciais](#diferenciais-do-projeto)
+- [📁 Organização](#organização)
+- [⚡ Como Executar](#como-executar)
+
+---
+
 ## Estrutura do Projeto
 
 <p align="center">
@@ -57,12 +70,19 @@ Supabase → dados estruturados (opcional)
 ---
 
 ### Pipeline de Ingestão
-<img src="assets/rag_ingestion_pipeline.svg" width="680"/>
+
+<p align="center">
+  <img src="assets/rag_ingestion_pipeline.svg" width="680"/>
+<p/>
 
 ---
 
 ### Pipeline de Retrieval
+
+<p align="center">
 <img src="assets/rag_retrieval_pipeline.svg" width="680"/>
+<p/>
+
 
 ## Diferenciais do Projeto
 
