@@ -3,7 +3,7 @@ from answering import Answerer
 
 
 def main():
-    query = "Quais documentos falam sobre tarifas de energia elétrica?"
+    query = "como funciona a tarifa de energia"
 
     retriever = QdrantRetriever()
     answerer = Answerer()

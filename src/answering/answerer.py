@@ -1,45 +1,64 @@
 from __future__ import annotations
 
-from langchain_core.documents import Document
-
 from answering.llm import build_llm
 from answering.prompt import build_answer_prompt
-import re
+
+
+# 🔥 função fora da classe (helper)
+def is_conceptual_query(query: str) -> bool:
+    keywords = ["como funciona", "o que é", "explique", "definição"]
+
+    query_lower = query.lower()
+
+    return any(k in query_lower for k in keywords)
+
 
 class Answerer:
-
-
     def __init__(self):
         self.llm = build_llm()
 
-    def answer(self, query: str, chunks: list[Document]) -> str:
-        if not chunks:
-            return (
-                "Não encontrei documentos relevantes suficientes para responder "
-                "à pergunta com segurança."
-            )
+def answer(self, query: str, chunks: list[dict]) -> str:
 
-        prompt = build_answer_prompt(query=query, chunks=chunks)
+    # 🔥 1. detectar pergunta conceitual
+    if is_conceptual_query(query):
 
-        response = self.llm.invoke(prompt)
+        explanation = self.llm.invoke(f"""
+Explique de forma clara e técnica como funciona a tarifa de energia elétrica no Brasil.
 
-        return response.content
+Considere:
+- TE (Tarifa de Energia)
+- TUSD (Tarifa de Uso do Sistema de Distribuição)
+- Encargos e componentes tarifárias
 
-    def extract_relevant_snippet(content: str, query: str) -> str:
-        sentences = re.split(r'(?<=[.!?])\s+', content)
+Responda de forma didática e estruturada.
+""").content
 
-        query_terms = query.lower().split()
+        # 🔥 2. tenta usar RAG também
+        if chunks:
+            rag_prompt = build_answer_prompt(query=query, chunks=chunks)
+            rag_response = self.llm.invoke(rag_prompt).content
 
-        scored = []
+            # 🔥 3. só usa RAG se tiver conteúdo útil
+            if "Não foi possível responder com segurança" not in rag_response:
+                return f"""
+{explanation}
 
-        for sentence in sentences:
-            score = sum(1 for term in query_terms if term in sentence.lower())
-            if score > 0:
-                scored.append((score, sentence))
+---
 
-        if not scored:
-            return content[:200]
+Baseado nos documentos regulatórios:
 
-        best_sentence = sorted(scored, reverse=True)[0][1]
+{rag_response}
+"""
 
-        return best_sentence.strip()
+        # 🔥 fallback: só explicação
+        return explanation
+
+    # 🔥 fluxo normal RAG
+    if not chunks:
+        return "Não encontrei documentos relevantes suficientes para responder com segurança."
+
+    prompt = build_answer_prompt(query=query, chunks=chunks)
+
+    response = self.llm.invoke(prompt)
+
+    return response.content
