@@ -43,7 +43,6 @@ streamlit = "^1.38"
 tqdm = "^4.66"
 tenacity = "^8.5"    # retry para chamadas de API
 supabase = "2.22.0"
-postgrest = "1.0.0"
 supabase-auth = "2.22.0"
 
 [tool.poetry.dev-dependencies]

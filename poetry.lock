@@ -3249,20 +3249,21 @@ testing = ["coverage", "pytest", "pytest-benchmark"]
 
 [[package]]
 name = "postgrest"
-version = "1.0.0"
+version = "2.29.0"
 description = "PostgREST client for Python. This library provides an ORM interface to PostgREST."
 optional = false
-python-versions = "<4.0,>=3.9"
+python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "postgrest-1.0.0-py3-none-any.whl", hash = "sha256:ae9400b3bc224e32b41cc2700de3a622fce44006c3207f9f341d7a2885052f16"},
-    {file = "postgrest-1.0.0.tar.gz", hash = "sha256:060bbe3ffcd33d37ce6f061ad9f68a1078cb6a4393d36fd97dec68653800eae3"},
+    {file = "postgrest-2.29.0-py3-none-any.whl", hash = "sha256:3ee48e146f726272733d20e2b12de354cdb6cb9dd9cc3a61ed97ce69047aeb96"},
+    {file = "postgrest-2.29.0.tar.gz", hash = "sha256:a87081858f627fcd57e8e7137004a1ef0adbdf0dbdfed1384e9ea1d7a9c525ec"},
 ]
 
 [package.dependencies]
-deprecation = ">=2.1.0,<3.0.0"
+deprecation = ">=2.1.0"
 httpx = {version = ">=0.26,<0.29", extras = ["http2"]}
 pydantic = ">=1.9,<3.0"
+yarl = ">=1.20.1"
 
 [[package]]
 name = "propcache"
@@ -6140,4 +6141,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "3b489214a076c7361eb0280351358abffa169297c693bf5ca08e7a9cf151c6bd"
+content-hash = "ac95ebc680fc46643b272a5c229512cb31a6e8fa1ea25d105a61e56ccda56ac9"

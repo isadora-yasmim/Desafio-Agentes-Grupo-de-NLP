@@ -1,21 +1,41 @@
-from langchain_community.vectorstores import SupabaseVectorStore
+from langchain_core.documents import Document
 
 from core.config import settings
 from core.database import get_supabase_client
 from ingestion.embedder import get_embeddings
 
 
-def build_semantic_retriever(k: int | None = None):
-    k = k or settings.RETRIEVAL_K_SEMANTIC
+class SupabaseSemanticRetriever:
+    def __init__(self, k: int = 20):
+        self.k = k
+        self.client = get_supabase_client()
+        self.embeddings = get_embeddings()
 
-    vector_store = SupabaseVectorStore(
-        client=get_supabase_client(),
-        embedding=get_embeddings(),
-        table_name=settings.SUPABASE_TABLE,
-        query_name="match_documents",
-    )
+    def invoke(self, query: str) -> list[Document]:
+        query_embedding = self.embeddings.embed_query(query)
 
-    return vector_store.as_retriever(
-        search_type="similarity",
-        search_kwargs={"k": k},
-    )
+        response = self.client.rpc(
+            "match_documents",
+            {
+                "query_embedding": query_embedding,
+                "match_count": self.k,
+            },
+        ).execute()
+
+        rows = response.data or []
+
+        return [
+            Document(
+                page_content=row.get("content", ""),
+                metadata={
+                    key: value
+                    for key, value in row.items()
+                    if key not in {"content", "embedding"}
+                },
+            )
+            for row in rows
+        ]
+
+
+def build_semantic_retriever(k: int = 20):
+    return SupabaseSemanticRetriever(k=k)

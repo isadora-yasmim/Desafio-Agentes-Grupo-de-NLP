@@ -5,7 +5,7 @@ from retrieval.reranker import get_reranker
 def main():
     query = "O que a ANEEL decidiu sobre geração distribuída?"
 
-    retriever = build_semantic_retriever(k=20)
+    retriever = build_semantic_retriever(k=5)
     docs = retriever.invoke(query)
 
     print(f"\nChunks recuperados: {len(docs)}")
