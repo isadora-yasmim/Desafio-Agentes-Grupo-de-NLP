@@ -112,11 +112,12 @@ class AneelChunker:
 
     def _chunk_one(self, doc: AneelDocument) -> list[Document]:
         
-        #debug
-        print("DEBUG CHUNKER NOVO RODANDO")
-        
         chunks: list[Document] = []
-        base_meta = doc.to_metadata()
+        base_meta = {
+            **doc.to_metadata(),
+            "tipo": doc.tipo_ato,
+            "titulo": doc.titulo,
+        }
 
         # ── Nível 1: full_doc (otimizado) ────────────────────────────────
         if self.config.include_full_doc_chunk:

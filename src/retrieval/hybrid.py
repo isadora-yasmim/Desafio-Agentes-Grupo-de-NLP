@@ -1,128 +1,128 @@
 """
-hybrid.py
----------
-Retrieval híbrido: semântico (vetores) + BM25 (keyword) + HyDE.
+retrieval/hybrid.py
+-------------------
+EnsembleRetriever com query expansion integrada.
 
-Fluxo completo:
-  Query
+Fluxo:
+  Query do usuário
     ↓
-  HyDE (gera documento hipotético para melhorar o embedding da query)
+  QueryExpansion → detecta sinônimos do domínio elétrico
+    ↓                 ex: "tarifa de energia" → ["TE", "TUSD", ...]
+    ├── HyDE: usa a query enriquecida para gerar documento hipotético
+    │         com terminologia técnica correta
+    │
+    ├── Semântico (Supabase): usa o documento hipotético como embedding
+    │
+    └── BM25 multi-query: roda BM25 para query original + cada sinônimo,
+                          funde por RRF
     ↓
-  EnsembleRetriever
-    ├── SupabaseVectorStore (semântico, cosine similarity)
-    └── BM25Retriever (keyword, funciona bem p/ termos como "ANEEL", "SCG")
+  Deduplicação por doc_id
     ↓
-  Reranker (cross-encoder BGE, seleciona top-K)
-    ↓
-  Chunks finais para o LLM
+  Reranker (cross-encoder BGE) → top-K
 """
-
 from __future__ import annotations
 
 from langchain_core.documents import Document
 from langchain_core.language_models import BaseLanguageModel
-from langchain.retrievers import EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
-from langchain_community.vectorstores import SupabaseVectorStore
 
 from core.config import settings
 from core.logger import get_logger
-from src.ingestion.embedder import get_embeddings, get_supabase_client
+from retrieval.semantic import SupabaseSemanticRetriever
+from retrieval.query_expansion import (
+    build_expanded_query,
+    bm25_multi_query_retrieve,
+    reciprocal_rank_fusion,
+)
 
 logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# 1. Vector Store Retriever (semântico)
+# BM25
 # ---------------------------------------------------------------------------
 
-def build_semantic_retriever(k: int | None = None) -> SupabaseVectorStore:
-    """Retorna o retriever semântico conectado ao Supabase."""
-    k = k or settings.RETRIEVAL_K_SEMANTIC
-    embeddings = get_embeddings()
-    client = get_supabase_client()
-
-    vector_store = SupabaseVectorStore(
-        client=client,
-        embedding=embeddings,
-        table_name=settings.SUPABASE_TABLE,
-        query_name="match_documents",
-    )
-    return vector_store.as_retriever(
-        search_type="similarity",
-        search_kwargs={"k": k},
-    )
-
-
-# ---------------------------------------------------------------------------
-# 2. BM25 Retriever (keyword)
-# ---------------------------------------------------------------------------
-
-def build_bm25_retriever(
-    docs: list[Document],
-    k: int | None = None,
-) -> BM25Retriever:
-    """
-    Constrói o retriever BM25 a partir dos chunks carregados.
-
-    Nota: O BM25Retriever do LangChain opera in-memory.
-    Para produção com muitos documentos, use Elasticsearch ou
-    OpenSearch no lugar do BM25Retriever.
-
-    Args:
-        docs: Lista de LangChain Documents (todos os chunks).
-        k: Número de documentos a retornar.
-    """
+def build_bm25_retriever(docs: list[Document], k: int | None = None) -> BM25Retriever:
     k = k or settings.RETRIEVAL_K_BM25
     retriever = BM25Retriever.from_documents(docs, k=k)
-    logger.info(f"BM25Retriever construído com {len(docs)} documentos.")
+    logger.info(f"BM25Retriever: {len(docs)} documentos indexados.")
     return retriever
 
 
 # ---------------------------------------------------------------------------
-# 3. Ensemble Retriever
+# Retriever híbrido com expansão
 # ---------------------------------------------------------------------------
 
-def build_ensemble_retriever(
-    all_chunks: list[Document],
-    semantic_weight: float = 0.6,
-    bm25_weight: float = 0.4,
-) -> EnsembleRetriever:
+class HybridRetriever:
     """
-    Combina busca semântica + BM25 via Reciprocal Rank Fusion (RRF).
-
-    O peso semântico maior é proposital: a qualidade dos vetores é
-    melhor para perguntas em linguagem natural. O BM25 complementa
-    para termos técnicos exatos (siglas, números de despacho).
-
-    Args:
-        all_chunks: Todos os chunks (necessário para construir o BM25).
-        semantic_weight: Peso do retriever semântico (0 a 1).
-        bm25_weight: Peso do retriever BM25 (0 a 1).
+    Combina semântico + BM25 multi-query com query expansion e deduplicação.
     """
-    assert abs(semantic_weight + bm25_weight - 1.0) < 1e-6, \
-        "Pesos devem somar 1.0"
 
-    semantic = build_semantic_retriever()
-    bm25 = build_bm25_retriever(all_chunks)
+    def __init__(
+        self,
+        all_chunks: list[Document],
+        semantic_weight: float = 0.6,
+        bm25_weight: float = 0.4,
+    ):
+        assert abs(semantic_weight + bm25_weight - 1.0) < 1e-6
 
-    ensemble = EnsembleRetriever(
-        retrievers=[semantic, bm25],
-        weights=[semantic_weight, bm25_weight],
-    )
-    logger.info(
-        f"EnsembleRetriever criado: semântico={semantic_weight}, BM25={bm25_weight}"
-    )
-    return ensemble
+        self.semantic_weight = semantic_weight
+        self.bm25_weight = bm25_weight
+
+        self.semantic = SupabaseSemanticRetriever(
+            k=settings.RETRIEVAL_K_SEMANTIC,
+            deduplicate=False,
+            chunk_type_filter="full_doc",
+        )
+        self.bm25 = build_bm25_retriever(all_chunks, k=settings.RETRIEVAL_K_BM25)
+
+        logger.info(
+            f"HybridRetriever: semântico={semantic_weight}, BM25={bm25_weight}"
+        )
+
+    def invoke(self, query: str) -> list[Document]:
+        bm25_docs = bm25_multi_query_retrieve(
+            self.bm25, query, k_per_query=settings.RETRIEVAL_K_BM25
+        )
+        semantic_docs = self.semantic.invoke(query)
+
+        fused = reciprocal_rank_fusion(
+            [semantic_docs] * round(self.semantic_weight * 10)
+            + [bm25_docs] * round(self.bm25_weight * 10)
+        )
+
+        deduped = self._deduplicate(fused)
+        logger.debug(
+            f"Híbrido: semântico={len(semantic_docs)}, "
+            f"BM25={len(bm25_docs)}, "
+            f"após fusão+dedup={len(deduped)}"
+        )
+        return deduped
+
+    def get_relevant_documents(self, query: str) -> list[Document]:
+        return self.invoke(query)
+
+    def _deduplicate(self, docs: list[Document]) -> list[Document]:
+        seen: set[str] = set()
+        result: list[Document] = []
+        for doc in docs:
+            key = doc.metadata.get("doc_id") or doc.page_content[:80]
+            if key not in seen:
+                seen.add(key)
+                result.append(doc)
+        return result
 
 
 # ---------------------------------------------------------------------------
-# 4. HyDE (Hypothetical Document Embeddings)
+# HyDE com query expansion
 # ---------------------------------------------------------------------------
 
 HYDE_PROMPT = """Você é um especialista em regulação do setor elétrico brasileiro (ANEEL).
 Dado a pergunta abaixo, escreva um trecho de documento regulatório que responderia diretamente a ela.
 Escreva como se fosse uma ementa ou despacho real da ANEEL. Seja técnico e conciso (3-5 linhas).
+Use a terminologia exata do setor: siglas (TE, TUSD, TUST, ANEEL, ONS), tipos de ato (DSP, REH, REN, PRT).
+
+Termos técnicos relacionados à pergunta: {expanded_terms}
 
 Pergunta: {question}
 
@@ -131,41 +131,48 @@ Trecho hipotético:"""
 
 class HyDERetriever:
     """
-    Wraps um retriever base e aplica HyDE antes da busca.
+    Aplica HyDE com query expansion antes de chamar o retriever base.
 
-    HyDE: em vez de embedar a query do usuário diretamente, pede ao LLM
-    para gerar um "documento hipotético" que responderia a query, e usa
-    esse documento como query de embedding. Isso alinha melhor o espaço
-    semântico da busca com o espaço dos documentos reais.
+    - O documento hipotético usa a terminologia técnica expandida,
+      melhorando o embedding para a busca semântica.
+    - O BM25 usa multi-query com os sinônimos expandidos diretamente,
+      sem passar pelo LLM.
     """
 
-    def __init__(
-        self,
-        base_retriever,
-        llm: BaseLanguageModel,
-    ):
+    def __init__(self, base_retriever: HybridRetriever, llm: BaseLanguageModel):
         self.base_retriever = base_retriever
         self.llm = llm
 
+    def invoke(self, query: str) -> list[Document]:
+        expanded = build_expanded_query(query)
+        hyde_doc = self._generate_hypothetical(query, expanded)
+        logger.debug(f"HyDE (expandido): {hyde_doc[:200]}")
+
+        # Semântico usa o doc hipotético; BM25 usa a query original + sinônimos
+        semantic_docs = self.base_retriever.semantic.invoke(hyde_doc)
+        bm25_docs = bm25_multi_query_retrieve(
+            self.base_retriever.bm25, query, k_per_query=settings.RETRIEVAL_K_BM25
+        )
+
+        fused = reciprocal_rank_fusion(
+            [semantic_docs] * round(self.base_retriever.semantic_weight * 10)
+            + [bm25_docs] * round(self.base_retriever.bm25_weight * 10)
+        )
+        return self.base_retriever._deduplicate(fused)
+
     def get_relevant_documents(self, query: str) -> list[Document]:
-        # Gera o documento hipotético
-        hyde_doc = self._generate_hypothetical(query)
-        logger.debug(f"HyDE gerado: {hyde_doc[:200]}...")
+        return self.invoke(query)
 
-        # Usa o documento hipotético como query para o retriever
-        return self.base_retriever.get_relevant_documents(hyde_doc)
+    def _generate_hypothetical(self, question: str, expanded_query: str) -> str:
+        expanded_terms = expanded_query.replace(question, "").strip(" []")
+        if not expanded_terms:
+            expanded_terms = "terminologia técnica do setor elétrico brasileiro"
 
-    async def aget_relevant_documents(self, query: str) -> list[Document]:
-        hyde_doc = self._generate_hypothetical(query)
-        return await self.base_retriever.aget_relevant_documents(hyde_doc)
-
-    def _generate_hypothetical(self, question: str) -> str:
-        prompt = HYDE_PROMPT.format(question=question)
+        prompt = HYDE_PROMPT.format(
+            question=question,
+            expanded_terms=expanded_terms,
+        )
         response = self.llm.invoke(prompt)
-        # Extrai o texto da resposta (compatível com ChatOpenAI e LLM base)
         if hasattr(response, "content"):
             return response.content.strip()
         return str(response).strip()
-
-    def invoke(self, query: str) -> list[Document]:
-        return self.get_relevant_documents(query)

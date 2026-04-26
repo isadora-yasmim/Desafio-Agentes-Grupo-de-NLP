@@ -1,0 +1,10 @@
+services:
+  rag-app:
+    build: .
+    container_name: rag-eletrico-app
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: python -m scripts.test_retrieval
