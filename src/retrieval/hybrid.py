@@ -21,13 +21,14 @@ from __future__ import annotations
 
 from langchain_core.documents import Document
 from langchain_core.language_models import BaseLanguageModel
-from langchain.retrievers import EnsembleRetriever
+from langchain.retrievers.ensemble import EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
 from langchain_community.vectorstores import SupabaseVectorStore
 
 from core.config import settings
 from core.logger import get_logger
-from src.ingestion.embedder import get_embeddings, get_supabase_client
+from ingestion.embedder import get_embeddings
+from core.database import get_supabase_client
 
 logger = get_logger(__name__)
 
