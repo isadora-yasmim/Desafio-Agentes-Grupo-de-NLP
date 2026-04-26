@@ -3,7 +3,7 @@ from retrieval.reranker import get_reranker
 
 
 def main():
-    query = "O que a ANEEL decidiu sobre geração distribuída?"
+    query = "Quais documentos falam sobre tarifas de energia elétrica?"
 
     retriever = build_semantic_retriever(k=5)
     docs = retriever.invoke(query)
