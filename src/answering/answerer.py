@@ -4,6 +4,7 @@ import re
 
 from answering.llm import build_llm
 from answering.prompt import build_answer_prompt
+from retrieval.confidence import ConfidenceLevel, decide_confidence
 
 
 CONCEPTUAL_KEYWORDS = [
@@ -58,6 +59,10 @@ def is_valid_rag_response(response: str) -> bool:
         "não foi possível responder",
         "não contém informações",
         "não há informação suficiente",
+        "não há informações suficientes",
+        "não encontrei informações suficientes",
+        "não encontrei evidência suficiente",
+        "não há evidência suficiente",
     ]
 
     response_lower = response.lower()
@@ -77,9 +82,20 @@ def extract_sources(chunks: list[dict]) -> list[dict]:
                     or metadata.get("titulo")
                     or metadata.get("document_title")
                 ),
-                "type": metadata.get("tipo_ato") or metadata.get("type"),
+                "type": (
+                    metadata.get("tipo_ato")
+                    or metadata.get("type")
+                    or metadata.get("tipo")
+                ),
                 "source": metadata.get("source") or metadata.get("fonte"),
                 "score": chunk.get("score"),
+                "final_score": (
+                    chunk.get("final_score")
+                    or metadata.get("final_score")
+                    or metadata.get("reranker_score")
+                    or metadata.get("score")
+                    or chunk.get("score")
+                ),
             }
         )
 
@@ -124,7 +140,6 @@ def extract_query_terms(query: str) -> list[str]:
         if word not in stopwords:
             terms.append(word)
 
-    # Remove duplicados preservando ordem
     unique_terms = []
     seen = set()
 
@@ -134,7 +149,6 @@ def extract_query_terms(query: str) -> list[str]:
             seen.add(normalized)
             unique_terms.append(term)
 
-    # Termos maiores primeiro evita destacar "tarifa" antes de "tarifa social"
     return sorted(unique_terms, key=len, reverse=True)
 
 
@@ -147,7 +161,6 @@ def highlight_terms(text: str, query: str) -> str:
         return text
 
     terms = extract_query_terms(query)
-
     highlighted = text
 
     for term in terms:
@@ -196,9 +209,20 @@ def format_document_listing(chunks: list[dict], query: str) -> str:
 
         content = (chunk.get("content") or "").strip()
         score = chunk.get("score")
+        final_score = (
+            chunk.get("final_score")
+            or metadata.get("final_score")
+            or metadata.get("reranker_score")
+            or metadata.get("score")
+            or score
+        )
 
         score_text = (
             f"{score:.4f}" if isinstance(score, (int, float)) else "não informado"
+        )
+
+        final_score_text = (
+            f"{float(final_score):.4f}" if final_score is not None else "não informado"
         )
 
         evidence = clean_evidence(content, doc_type, title)
@@ -207,10 +231,21 @@ def format_document_listing(chunks: list[dict], query: str) -> str:
         documents.append(
             f"- **{doc_type} — {title}**\n"
             f"  - Evidência de relação: {evidence}\n"
-            f"  - Score de recuperação: {score_text}"
+            f"  - Score de recuperação: {score_text}\n"
+            f"  - Score final de confiança: {final_score_text}"
         )
 
     return "Encontrei os seguintes documentos relacionados:\n\n" + "\n\n".join(documents)
+
+
+def normalize_confidence_label(level: ConfidenceLevel) -> str:
+    if level == ConfidenceLevel.HIGH:
+        return "alta"
+
+    if level == ConfidenceLevel.MEDIUM:
+        return "média"
+
+    return "baixa"
 
 
 class Answerer:
@@ -248,6 +283,8 @@ Regras:
         return self.llm.invoke(prompt).content
 
     def answer(self, query: str, chunks: list[dict]) -> dict:
+        confidence_decision = decide_confidence(chunks)
+        confidence_label = normalize_confidence_label(confidence_decision.level)
 
         # 1. DOCUMENT LISTING
         if is_document_listing_query(query):
@@ -256,14 +293,29 @@ Regras:
                     "type": "document_listing",
                     "answer": "Não encontrei documentos relacionados à consulta.",
                     "confidence": "baixa",
+                    "final_score": 0.0,
                     "sources": [],
                     "used_rag": True,
                 }
 
+            answer = format_document_listing(chunks, query)
+
+            if confidence_decision.level == ConfidenceLevel.MEDIUM:
+                answer = f"{confidence_decision.warning}\n\n{answer}"
+
+            if confidence_decision.level == ConfidenceLevel.LOW:
+                answer = (
+                    f"{confidence_decision.warning}\n\n"
+                    "Os documentos recuperados têm baixa força de evidência. "
+                    "A listagem abaixo pode conter documentos relacionados, mas não deve ser tratada como resposta conclusiva.\n\n"
+                    f"{answer}"
+                )
+
             return {
                 "type": "document_listing",
-                "answer": format_document_listing(chunks, query),
-                "confidence": "média",
+                "answer": answer,
+                "confidence": confidence_label,
+                "final_score": confidence_decision.final_score,
                 "sources": extract_sources(chunks),
                 "used_rag": True,
             }
@@ -272,32 +324,44 @@ Regras:
         if is_conceptual_query(query):
             explanation = self._conceptual_answer(query)
 
-            if chunks:
+            if chunks and confidence_decision.level != ConfidenceLevel.LOW:
                 rag_response = self._rag_answer(query, chunks)
 
                 if is_valid_rag_response(rag_response):
+                    answer = (
+                        "(Baseado em conhecimento geral do modelo, com complementos de documentos regulatórios quando disponíveis)\n\n"
+                        f"{explanation}\n\n"
+                        "---\n\n"
+                        "📚 Baseado nos documentos regulatórios:\n\n"
+                        f"{rag_response}"
+                    )
+
+                    if confidence_decision.level == ConfidenceLevel.MEDIUM:
+                        answer = f"{confidence_decision.warning}\n\n{answer}"
+
                     return {
                         "type": "hybrid",
-                        "answer": (
-                            "(Baseado em conhecimento geral do modelo, com complementos de documentos regulatórios quando disponíveis)\n\n"
-                            f"{explanation}\n\n"
-                            "---\n\n"
-                            "📚 Baseado nos documentos regulatórios:\n\n"
-                            f"{rag_response}"
-                        ),
-                        "confidence": "média",
+                        "answer": answer,
+                        "confidence": confidence_label,
+                        "final_score": confidence_decision.final_score,
                         "sources": extract_sources(chunks),
                         "used_rag": True,
                     }
 
+            fallback_message = (
+                "(Baseado em conhecimento geral do modelo, devido à ausência de evidência documental forte nos documentos recuperados)\n\n"
+                f"{explanation}"
+            )
+
+            if confidence_decision.warning:
+                fallback_message = f"{confidence_decision.warning}\n\n{fallback_message}"
+
             return {
                 "type": "conceptual",
-                "answer": (
-                    "(Baseado em conhecimento geral do modelo, devido à ausência de evidência relevante nos documentos recuperados)\n\n"
-                    f"{explanation}"
-                ),
-                "confidence": "média",
-                "sources": [],
+                "answer": fallback_message,
+                "confidence": confidence_label,
+                "final_score": confidence_decision.final_score,
+                "sources": extract_sources(chunks) if chunks else [],
                 "used_rag": False,
             }
 
@@ -305,20 +369,52 @@ Regras:
         if not chunks:
             return {
                 "type": "factual",
-                "answer": "Não encontrei documentos suficientes para responder com segurança.",
+                "answer": (
+                    "⚠️ Não encontrei documentos suficientes para responder com segurança.\n\n"
+                    "Como a pergunta parece factual, não vou usar conhecimento geral do modelo para evitar uma resposta sem base documental."
+                ),
                 "confidence": "baixa",
+                "final_score": 0.0,
                 "sources": [],
+                "used_rag": False,
+            }
+
+        if confidence_decision.level == ConfidenceLevel.LOW:
+            return {
+                "type": "factual",
+                "answer": (
+                    f"{confidence_decision.warning}\n\n"
+                    "Como a pergunta parece factual, não vou gerar uma resposta afirmativa sem evidência documental suficiente."
+                ),
+                "confidence": "baixa",
+                "final_score": confidence_decision.final_score,
+                "sources": extract_sources(chunks),
                 "used_rag": False,
             }
 
         rag_response = self._rag_answer(query, chunks)
 
-        confidence = "alta" if is_valid_rag_response(rag_response) else "baixa"
+        if not is_valid_rag_response(rag_response):
+            return {
+                "type": "factual",
+                "answer": (
+                    "⚠️ Os documentos recuperados não trouxeram informação suficiente para responder com segurança.\n\n"
+                    "Não vou complementar com conhecimento geral para evitar extrapolação."
+                ),
+                "confidence": "baixa",
+                "final_score": confidence_decision.final_score,
+                "sources": extract_sources(chunks),
+                "used_rag": True,
+            }
+
+        if confidence_decision.level == ConfidenceLevel.MEDIUM:
+            rag_response = f"{confidence_decision.warning}\n\n{rag_response}"
 
         return {
             "type": "factual",
             "answer": rag_response,
-            "confidence": confidence,
+            "confidence": confidence_label,
+            "final_score": confidence_decision.final_score,
             "sources": extract_sources(chunks),
             "used_rag": True,
         }
