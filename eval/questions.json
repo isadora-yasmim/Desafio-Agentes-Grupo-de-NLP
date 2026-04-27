@@ -1,74 +1,272 @@
 [
   {
-    "question": "Quais documentos falam sobre tarifa social de energia elétrica?",
-    "reference": "A resposta deve identificar documentos relacionados à Tarifa Social de Energia Elétrica, baixa renda, subvenção econômica, CDE ou benefícios tarifários."
+    "question": "O que é revisão tarifária periódica?",
+    "reference": "Processo de reajuste da tarifa a cada ciclo regulatório.",
+    "expected_confidence": "alta",
+    "expected_type": "conceptual",
+    "difficulty": "medium",
+    "category": "conceptual",
+    "domain": "revisao_tarifaria"
   },
   {
-    "question": "O que é TUSD?",
-    "reference": "A resposta deve explicar que TUSD é a Tarifa de Uso do Sistema de Distribuição, relacionada ao uso da rede de distribuição de energia elétrica."
+    "question": "O que é modalidade tarifária?",
+    "reference": "Estrutura de tarifas aplicável conforme perfil de consumo.",
+    "expected_confidence": "média",
+    "expected_type": "conceptual",
+    "difficulty": "medium",
+    "category": "conceptual",
+    "domain": "modalidade_tarifaria"
   },
   {
-    "question": "Quais documentos tratam sobre TE?",
-    "reference": "A resposta deve recuperar documentos relacionados à Tarifa de Energia (TE), evitando confundir com TEO, TUST ou TUSD."
+    "question": "O que são bandeiras tarifárias?",
+    "reference": "Mecanismo de custo de geração.",
+    "expected_confidence": "média",
+    "expected_type": "conceptual",
+    "difficulty": "easy",
+    "category": "conceptual",
+    "domain": "bandeiras"
   },
   {
-    "question": "O que significa TE na tarifa de energia?",
-    "reference": "A resposta deve explicar que TE é a Tarifa de Energia, referente ao custo da energia consumida."
+    "question": "O que é RGR?",
+    "reference": "Reserva Global de Reversão, encargo destinado ao custeio da reversão de concessões.",
+    "expected_confidence": "média",
+    "expected_type": "conceptual",
+    "difficulty": "medium",
+    "category": "conceptual",
+    "domain": "encargos"
   },
   {
-    "question": "Qual a diferença entre TUSD e TE?",
-    "reference": "A resposta deve diferenciar TUSD (uso da rede) e TE (energia consumida)."
+    "question": "O que é medidor inteligente?",
+    "reference": "Equipamento de medição com comunicação bidirecional e funcionalidades avançadas.",
+    "expected_confidence": "média",
+    "expected_type": "conceptual",
+    "difficulty": "medium",
+    "category": "conceptual",
+    "domain": "medicao"
   },
   {
-    "question": "Quais documentos falam sobre bandeiras tarifárias?",
-    "reference": "A resposta deve identificar documentos que tratam do sistema de bandeiras tarifárias na energia elétrica."
+    "question": "O que é qualidade de energia elétrica?",
+    "reference": "Conjunto de indicadores que avaliam conformidade de tensão e continuidade do serviço.",
+    "expected_confidence": "alta",
+    "expected_type": "conceptual",
+    "difficulty": "medium",
+    "category": "conceptual",
+    "domain": "qualidade_energia"
   },
   {
-    "question": "Quais normas tratam de consumidores de baixa renda?",
-    "reference": "A resposta deve recuperar documentos relacionados a consumidores de baixa renda e benefícios tarifários."
+    "question": "O que é consumidor especial?",
+    "reference": "Consumidor com direito de acessar fornecedores de fontes incentivadas.",
+    "expected_confidence": "média",
+    "expected_type": "conceptual",
+    "difficulty": "medium",
+    "category": "conceptual",
+    "domain": "mercado_livre"
   },
   {
-    "question": "Qual a relação entre CDE e tarifa social?",
-    "reference": "A resposta deve explicar que a CDE financia subsídios como a tarifa social."
+    "question": "O que é encargo setorial?",
+    "reference": "Custo obrigatório incluído na tarifa para financiar políticas do setor elétrico.",
+    "expected_confidence": "média",
+    "expected_type": "conceptual",
+    "difficulty": "medium",
+    "category": "conceptual",
+    "domain": "encargos"
   },
   {
-    "question": "Existe algum documento sobre subsídio tarifário?",
-    "reference": "A resposta deve identificar documentos que tratam de subsídios na tarifa de energia elétrica."
+    "question": "Quais são os postos tarifários?",
+    "reference": "Ponta e fora de ponta.",
+    "expected_confidence": "média",
+    "expected_type": "factual",
+    "difficulty": "easy",
+    "category": "factual",
+    "domain": "posto_tarifario"
   },
   {
-    "question": "Quais documentos falam sobre TEO?",
-    "reference": "A resposta deve recuperar documentos relacionados à Tarifa de Energia de Otimização (TEO)."
+    "question": "Quais são os principais encargos setoriais?",
+    "reference": "CDE, PROINFA, RGR, TFSEE, P&D, entre outros.",
+    "expected_confidence": "média",
+    "expected_type": "factual",
+    "difficulty": "hard",
+    "category": "factual",
+    "domain": "encargos"
   },
   {
-    "question": "Quais documentos falam sobre TUST?",
-    "reference": "A resposta deve recuperar documentos relacionados à Tarifa de Uso do Sistema de Transmissão (TUST)."
+    "question": "Qual a diferença entre DEC e FEC?",
+    "reference": "DEC mede duração e FEC mede frequência de interrupções.",
+    "expected_confidence": "alta",
+    "expected_type": "factual",
+    "difficulty": "medium",
+    "category": "factual",
+    "domain": "indicadores_qualidade"
   },
   {
-    "question": "O que é TUST?",
-    "reference": "A resposta deve explicar que TUST é a Tarifa de Uso do Sistema de Transmissão."
+    "question": "Qual o papel da ANEEL?",
+    "reference": "Regular setor elétrico.",
+    "expected_confidence": "alta",
+    "expected_type": "factual",
+    "difficulty": "easy",
+    "category": "factual",
+    "domain": "aneel"
   },
   {
-    "question": "Existe algum documento sobre Tarifa Lunar?",
-    "reference": "A resposta deve indicar que não existe evidência nos documentos sobre esse tema."
+    "question": "Como o fator X impacta as tarifas?",
+    "reference": "Reduz o reajuste tarifário ao transferir ganhos de eficiência ao consumidor.",
+    "expected_confidence": "média",
+    "expected_type": "factual",
+    "difficulty": "hard",
+    "category": "factual",
+    "domain": "revisao_tarifaria"
   },
   {
-    "question": "O que os documentos dizem sobre energia para baixa renda?",
-    "reference": "A resposta deve tratar de benefícios, tarifa social e políticas para consumidores de baixa renda."
+    "question": "O que acontece quando a demanda medida supera a contratada?",
+    "reference": "O consumidor paga tarifa de ultrapassagem.",
+    "expected_confidence": "média",
+    "expected_type": "factual",
+    "difficulty": "medium",
+    "category": "factual",
+    "domain": "demanda"
   },
   {
-    "question": "Quais documentos tratam de desconto na conta de energia?",
-    "reference": "A resposta deve identificar documentos relacionados a descontos tarifários e benefícios."
+    "question": "O que é REN 482?",
+    "reference": "Resolução Normativa que regulamentou a geração distribuída no Brasil.",
+    "expected_confidence": "alta",
+    "expected_type": "factual",
+    "difficulty": "medium",
+    "category": "factual",
+    "domain": "geracao_distribuida"
   },
   {
-    "question": "Quais documentos falam sobre Conta de Desenvolvimento Energético?",
-    "reference": "A resposta deve identificar documentos que tratam da CDE."
+    "question": "Quais documentos tratam de revisão tarifária?",
+    "reference": "Listagem de documentos sobre revisão tarifária.",
+    "expected_confidence": "média",
+    "expected_type": "document_listing",
+    "difficulty": "medium",
+    "category": "document_listing",
+    "domain": "revisao_tarifaria"
   },
   {
-    "question": "Como funciona a tarifa social de energia elétrica?",
-    "reference": "A resposta deve explicar o funcionamento da tarifa social com base nos documentos."
+    "question": "Quais documentos falam sobre tarifa social?",
+    "reference": "Listagem de documentos relacionados.",
+    "expected_confidence": "alta",
+    "expected_type": "document_listing",
+    "difficulty": "easy",
+    "category": "document_listing",
+    "domain": "tarifa_social"
   },
   {
-    "question": "Quais documentos falam sobre regulação tarifária no Brasil?",
-    "reference": "A resposta deve identificar documentos regulatórios relacionados à formação de tarifas."
+    "question": "Quais documentos tratam de concessão de distribuição?",
+    "reference": "Listagem de documentos sobre concessão.",
+    "expected_confidence": "média",
+    "expected_type": "document_listing",
+    "difficulty": "medium",
+    "category": "document_listing",
+    "domain": "concessao"
+  },
+  {
+    "question": "Quais documentos tratam de encargos setoriais?",
+    "reference": "Listagem de documentos sobre encargos.",
+    "expected_confidence": "média",
+    "expected_type": "document_listing",
+    "difficulty": "medium",
+    "category": "document_listing",
+    "domain": "encargos"
+  },
+  {
+    "question": "Quais documentos tratam do sistema de compensação de energia?",
+    "reference": "Listagem de documentos sobre compensação de energia.",
+    "expected_confidence": "alta",
+    "expected_type": "document_listing",
+    "difficulty": "medium",
+    "category": "document_listing",
+    "domain": "geracao_distribuida"
+  },
+  {
+    "question": "Quais documentos tratam de redes inteligentes?",
+    "reference": "Listagem de documentos sobre smart grid.",
+    "expected_confidence": "baixa",
+    "expected_type": "document_listing",
+    "difficulty": "medium",
+    "category": "document_listing",
+    "domain": "redes_inteligentes"
+  },
+  {
+    "question": "Quais documentos tratam de pré-pagamento de energia?",
+    "reference": "Listagem de documentos sobre pré-pagamento.",
+    "expected_confidence": "baixa",
+    "expected_type": "document_listing",
+    "difficulty": "medium",
+    "category": "document_listing",
+    "domain": "medicao"
+  },
+  {
+    "question": "Quais documentos tratam de autoprodução?",
+    "reference": "Listagem de documentos sobre autoprodução.",
+    "expected_confidence": "baixa",
+    "expected_type": "document_listing",
+    "difficulty": "medium",
+    "category": "document_listing",
+    "domain": "autoprodução"
+  },
+  {
+    "question": "O que os documentos dizem sobre geração distribuída e tarifas?",
+    "reference": "Relação entre GD, créditos e impacto na fatura do consumidor.",
+    "expected_confidence": "alta",
+    "expected_type": "hybrid",
+    "difficulty": "hard",
+    "category": "hybrid",
+    "domain": "geracao_distribuida"
+  },
+  {
+    "question": "O que os documentos informam sobre o mercado livre de energia?",
+    "reference": "Regras de acesso, elegibilidade e contratação no mercado livre.",
+    "expected_confidence": "alta",
+    "expected_type": "hybrid",
+    "difficulty": "hard",
+    "category": "hybrid",
+    "domain": "mercado_livre"
+  },
+  {
+    "question": "O que os documentos dizem sobre qualidade do fornecimento?",
+    "reference": "Indicadores DEC, FEC e metas estabelecidas pela ANEEL.",
+    "expected_confidence": "alta",
+    "expected_type": "hybrid",
+    "difficulty": "medium",
+    "category": "hybrid",
+    "domain": "qualidade_energia"
+  },
+  {
+    "question": "O que os documentos dizem sobre baixa renda?",
+    "reference": "Resumo sobre tarifa social.",
+    "expected_confidence": "alta",
+    "expected_type": "hybrid",
+    "difficulty": "medium",
+    "category": "hybrid",
+    "domain": "tarifa_social"
+  },
+  {
+    "question": "Existe tarifa lunar?",
+    "reference": "Não existe no domínio.",
+    "expected_confidence": "baixa",
+    "expected_type": "document_listing",
+    "difficulty": "out_of_domain",
+    "category": "fallback",
+    "domain": "fora_dominio"
+  },
+  {
+    "question": "O que é tarifa de energia renovável exclusiva?",
+    "reference": "Termo inexistente na regulação da ANEEL.",
+    "expected_confidence": "baixa",
+    "expected_type": "conceptual",
+    "difficulty": "out_of_domain",
+    "category": "fallback",
+    "domain": "fora_dominio"
+  },
+  {
+    "question": "O que é tarifa lunar?",
+    "reference": "Termo inexistente.",
+    "expected_confidence": "baixa",
+    "expected_type": "conceptual",
+    "difficulty": "out_of_domain",
+    "category": "fallback",
+    "domain": "fora_dominio"
   }
 ]
