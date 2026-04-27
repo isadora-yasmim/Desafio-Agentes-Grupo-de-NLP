@@ -15,13 +15,13 @@
 
 ## 📑 Índice
 
-- [🏗️ Estrutura do Projeto](#estrutura-do-projeto)
-- [⚙️ Stack](#stack)
-- [🧠 Arquitetura](#arquitetura)
-- [🚀 Diferenciais](#diferenciais-do-projeto)
-- [📊 Resultados](#resultados)
-- [📁 Organização](#organização)
-- [⚡ Como Executar](#como-executar)
+- [🏗️ Estrutura do Projeto](#%EF%B8%8F-estrutura-do-projeto)
+- [⚙️ Stack](#%EF%B8%8F-stack)
+- [🧠 Arquitetura](#-arquitetura)
+- [🚀 Diferenciais](#-diferenciais-do-projeto)
+- [📊 Resultados](#-resultados)
+- [📁 Organização](#-organização)
+- [⚡ Como Executar](#-como-executar)
 
 
 ## 🏗️ Estrutura do Projeto
