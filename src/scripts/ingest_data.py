@@ -3,7 +3,7 @@ ingest_data.py
 --------------
 Script principal de ingestão. Orquestra todo o pipeline:
 
-  JSON files → Parser → Chunker → Embedder → Qdrant
+  JSON files → Parser → Chunker → Leitura de PDFs → Embedder → Qdrant
 
 Uso:
     python scripts/ingest_data.py                    # usa settings padrão
@@ -21,6 +21,10 @@ import time
 
 import logging
 
+from pathlib import Path
+import PyPDF2 
+from langchain_core.documents import Document
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s"
@@ -28,13 +32,12 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-from pathlib import Path
 
 # Adiciona o root do projeto ao path
 #sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from ingestion.parser import AneelJsonParser
-from ingestion.chunker import AneelChunker, ChunkConfig
+from ingestion.chunker import AneelChunker, ChunkConfig, build_pdf_text_splitter
 from ingestion.embedder import AneelEmbedder
 from core.logger import get_logger
 
@@ -67,7 +70,6 @@ def run_ingestion(
 
     parser = AneelJsonParser()
 
-    # 🔥 ALTERAÇÃO AQUI (caminho absoluto correto)
     data_path = Path(__file__).resolve().parents[2] / data_dir
 
     # Filtra por ano se especificado
@@ -99,7 +101,7 @@ def run_ingestion(
 
     # ── 2. Chunker ───────────────────────────────────────────────────────────
     logger.info("\n" + "═" * 60)
-    logger.info("ETAPA 2: Chunking hierárquico")
+    logger.info("ETAPA 2: Chunking hierárquico (Ementas e Metadados)")
     logger.info("═" * 60)
 
     chunk_config = ChunkConfig(
@@ -114,48 +116,76 @@ def run_ingestion(
     chunker = AneelChunker(config=chunk_config)
     chunks = chunker.chunk_documents(docs)
 
+    logger.info("\n" + "═" * 60)
+    logger.info("ETAPA 3: Extração e Chunking do texto completo dos PDFs")
+    logger.info("═" * 60)
+
+    pdf_splitter = build_pdf_text_splitter()
+    pdf_chunks = []
+    pdfs_dir = data_path / "pdfs"
+
+    for doc in docs:
+        if not doc.pdfs:
+            continue
+
+        for pdf_ref in doc.pdfs:
+            if not pdf_ref.arquivo:
+                continue
+
+            # Tenta encontrar o PDF
+            pdf_path = pdfs_dir / pdf_ref.arquivo
+            if not pdf_path.exists():
+                # Tenta na raiz do data_dir caso não exista a pasta 'pdfs'
+                pdf_path = data_path / pdf_ref.arquivo
+                if not pdf_path.exists():
+                    continue
+
+            try:
+                # 1. Lê o PDF completo
+                with open(pdf_path, "rb") as f:
+                    reader = PyPDF2.PdfReader(f)
+                    texto_completo = ""
+                    for page in reader.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            texto_completo += page_text + "\n"
+
+                if not texto_completo.strip():
+                    continue
+
+                # 2. Quebra o texto usando as regras jurídicas
+                raw_chunks = pdf_splitter.split_text(texto_completo)
+
+                # 3. Aplica o contexto no topo de cada chunk
+                for i, trecho in enumerate(raw_chunks):
+                    texto_final = (
+                        f"Tipo do ato: {doc.tipo_ato}\n"
+                        f"Título: {doc.titulo}\n"
+                        f"---\n"
+                        f"{trecho.strip()}"
+                    )
+
+                    pdf_chunks.append(Document(
+                        page_content=texto_final,
+                        metadata={
+                            "doc_id": doc.doc_id,
+                            "titulo": doc.titulo,
+                            "tipo_ato": doc.tipo_ato,
+                            "chunk_type": "full_pdf_text",
+                            "chunk_index": i,
+                            "arquivo_origem": pdf_ref.arquivo
+                        }
+                    ))
+            except Exception as e:
+                logger.error(f"Erro ao processar PDF {pdf_ref.arquivo}: {e}")
+
+    logger.info(f"Gerados {len(pdf_chunks)} chunks a partir dos PDFs.")
+    chunks.extend(pdf_chunks)
     stats["n_chunks"] = len(chunks)
-
-    # Estatísticas dos chunks
-    summary_count = sum(
-    1 for chunk in chunks
-    if chunk.metadata.get("chunk_type") == "document_summary"
-    )
-
-    window_count = sum(
-        1 for chunk in chunks
-        if chunk.metadata.get("chunk_type") == "semantic_window"
-    )
-
-    keyword_count = sum(
-        1 for chunk in chunks
-        if chunk.metadata.get("chunk_type") == "keyword_context"
-    )
-
-    logger.info(f"  → document_summary: {summary_count}")
-    logger.info(f"  → semantic_window:  {window_count}")
-    logger.info(f"  → keyword_context:  {keyword_count}")
-
-    avg_len = sum(len(c.page_content) for c in chunks) / len(chunks)
-    logger.info(f"  → Tamanho médio: {avg_len:.0f} chars")
 
     if dry_run:
         logger.info("\n[DRY RUN] Pulando inserção no Qdrant.")
-        for chunk_type in ["document_summary", "semantic_window", "keyword_context"]:
-            example = next(
-                (
-                    chunk for chunk in chunks
-                    if chunk.metadata.get("chunk_type") == chunk_type
-                ),
-                None,
-            )
-
-        if example:
-            logger.info(f"\nExemplo de chunk_type={chunk_type}:")
-            logger.info(example.page_content[:1000])
-            logger.info(f"Metadados: {example.metadata}")
-            stats["elapsed"] = time.time() - start
-            return stats
+        return stats
 
     # ── 3. Embedding + Upsert ────────────────────────────────────────────────
     logger.info("\n" + "═" * 60)
@@ -184,6 +214,12 @@ def run_ingestion(
     logger.info(f"  Chunks no Qdrant:    {stats.get('final_count', 'N/A')}")
     logger.info(f"  Tempo total:           {stats['elapsed']:.1f}s")
 
+    import pickle
+    chunks_path = data_path / "chunks_for_bm25.pkl"
+    with open(chunks_path, "wb") as f:
+        pickle.dump(chunks, f)
+    logger.info(f"Chunks salvos para busca híbrida em: {chunks_path}")
+    
     return stats
 
 

@@ -55,8 +55,9 @@ A arquitetura separa responsabilidades entre banco vetorial dedicado e dados est
 
 ```text
 Qdrant   → vetores (embeddings + busca semântica)
-Supabase → dados estruturados (opcional)
+Supabase → dados estruturados 
 ```
+O Supabase foi usado em uma versão inicial e no projeto atual não é utilizado. Mantido na documentação para histórico e futura integração como base de dados secundária.
 
 ### Decisão Arquitetural
 
@@ -222,8 +223,10 @@ docker-compose up -d --build
 Antes de realizar perguntas, o banco vetorial precisa ser populado com os documentos da ANEEL. Execute o script de ingestão rodando o comando abaixo (ele executará o script dentro do container que já está rodando):
 
 ```bash
-docker-compose exec rag-app python -m scripts.ingest_data
+docker-compose exec rag-app python -m scripts.ingest_data --clear
 ```
+- A flag --clear garante que qualquer resquício de indexações antigas seja removido, evitando duplicidade e inconsistência nos resultados.
+
 *Aguarde a barra de progresso finalizar e os chunks serem salvos no Qdrant.*
 
 #### 4. Acessando a Aplicação
@@ -246,7 +249,3 @@ Com os dados ingeridos, a interface gráfica do Streamlit já está pronta para 
 | docs fracos       | explicação + aviso |
 | docs inexistentes | aviso + fallback   |
 | pergunta factual  | RAG puro           |
-
-
-
-

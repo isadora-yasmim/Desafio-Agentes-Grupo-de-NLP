@@ -48,8 +48,14 @@ tenacity = "^8.5"
 supabase = "2.21.0"   # ⚠️ troquei versão yanked
 supabase-auth = "2.21.0"
 
-pandas = "^2.2"
+
 matplotlib = "^3.8"
+tenacity = "^8.5"    # retry para chamadas de API
+qdrant-client = "^1.17.1"
+langchain-qdrant = "<1.0.0"
+PyPDF2 = "^3.0.0"
+pandas = "^3.0.2"
+
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
