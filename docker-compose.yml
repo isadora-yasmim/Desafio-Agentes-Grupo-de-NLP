@@ -21,6 +21,18 @@ services:
       - "6334:6334"
     volumes:
       - qdrant_storage:/qdrant/storage
+  ingest:
+    build: .
+    container_name: rag-eletrico-ingest
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    working_dir: /app
+    depends_on:
+      - qdrant
+    command: python -m scripts.ingest_data
+
 
 volumes:
   qdrant_storage:
