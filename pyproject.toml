@@ -16,11 +16,12 @@ langchain-openai = "^0.2"
 langchain-huggingface = "^0.1"
 langchain-text-splitters = "^0.3"
 
-# Embeddings / Modelos locais
-sentence-transformers = "^3.0"   # BGE reranker + E5
-torch = "^2.3"                    # backend do sentence-transformers
+# ❌ REMOVIDO torch pesado
+# ❌ REMOVIDO sentence-transformers pesado
 
 # Vector DB
+qdrant-client = "^1.17.1"
+langchain-qdrant = "<1.0.0"
 
 # LLM
 openai = "^1.40"
@@ -41,18 +42,22 @@ streamlit = "^1.38"
 
 # Utilitários
 tqdm = "^4.66"
+tenacity = "^8.5"
+
+# Supabase (mantido)
+supabase = "2.21.0"   # ⚠️ troquei versão yanked
+supabase-auth = "2.21.0"
+
+
+matplotlib = "^3.8"
 tenacity = "^8.5"    # retry para chamadas de API
-supabase = "2.22.0"
-supabase-auth = "2.22.0"
 qdrant-client = "^1.17.1"
 langchain-qdrant = "<1.0.0"
-<<<<<<< HEAD
 PyPDF2 = "^3.0.0"
-=======
 pandas = "^3.0.2"
->>>>>>> e2999731d5680b9c56b15f337334b12bd45e9af6
 
-[tool.poetry.dev-dependencies]
+
+[tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
 pytest-asyncio = "^0.23"
 black = "^24.0"

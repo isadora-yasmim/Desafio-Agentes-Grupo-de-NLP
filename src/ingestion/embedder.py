@@ -134,7 +134,7 @@ class AneelEmbedder:
             points = []
 
             for text, vector, metadata in zip(texts, vectors, metadatas):
-                point_id = str(uuid.uuid4())
+                point_id = str(uuid.uuid5(uuid.NAMESPACE_URL, metadata["chunk_id"]))
 
                 payload = {
                     "content": text,

@@ -163,19 +163,42 @@ def render_sources(sources):
 
     with st.expander("Fontes Consultadas"):
         for i, s in enumerate(sources, 1):
-            meta = s.get("metadata", {})
-            title = meta.get("title") or meta.get("titulo") or "Documento"
+            meta = s.get("metadata") or {}
+
+            title = (
+                meta.get("titulo")
+                or meta.get("title")
+                or s.get("titulo")
+                or s.get("title")
+                or "Documento"
+            )
+
+            tipo = (
+                meta.get("tipo_ato")
+                or meta.get("tipo")
+                or s.get("tipo")
+                or ""
+            )
+
+            score = (
+                s.get("final_score")
+                or s.get("score")
+                or meta.get("score")
+            )
+
+            score_text = f"Score: {score:.4f}" if isinstance(score, float) else ""
 
             st.markdown(
                 f"""
                 <div class="source-card">
                     <div class="source-title">{i}. {title}</div>
-                    <div class="source-meta">{meta.get("tipo","")}</div>
+                    <div class="source-meta">
+                        {tipo}{f" • {score_text}" if score_text else ""}
+                    </div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-
 
 # =========================
 # 💬 CHAT
@@ -260,6 +283,7 @@ def main():
 
         answer = result.get("answer", "")
         sources = result.get("sources", [])
+        st.write("DEBUG SOURCES:", sources)
 
         st.session_state.messages.append(
             {

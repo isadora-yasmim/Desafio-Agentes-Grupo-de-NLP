@@ -56,25 +56,41 @@ def load_questions() -> list[dict[str, Any]]:
 
 
 def extract_contexts(result: dict[str, Any]) -> list[str]:
-    sources = result.get("sources") or result.get("documents") or result.get("contexts") or []
+    sources = (
+        result.get("sources")
+        or result.get("documents")
+        or result.get("contexts")
+        or []
+    )
 
     contexts: list[str] = []
 
     for source in sources:
         if isinstance(source, str) and source.strip():
             contexts.append(source.strip())
+            continue
 
-        elif isinstance(source, dict):
-            content = (
-                source.get("content")
-                or source.get("page_content")
-                or source.get("text")
-                or source.get("chunk")
-                or ""
-            )
+        if not isinstance(source, dict):
+            continue
 
-            if content and content.strip():
-                contexts.append(content.strip())
+        metadata = source.get("metadata") or {}
+
+        content = (
+            source.get("content")
+            or source.get("page_content")
+            or source.get("text")
+            or source.get("chunk")
+            or metadata.get("content")
+            or metadata.get("page_content")
+            or metadata.get("text")
+            or metadata.get("chunk")
+            or metadata.get("ementa")
+            or metadata.get("summary")
+            or ""
+        )
+
+        if content and str(content).strip():
+            contexts.append(str(content).strip())
 
     return contexts
 
@@ -100,7 +116,102 @@ def run_pipeline(
         "question": question,
         "answer": answer,
         "contexts": contexts,
+        "confidence": result.get("confidence"),
+        "final_score": result.get("final_score"),
+        "used_rag": result.get("used_rag"),
+        "type": result.get("type"),
     }
+
+
+def build_summary_df(
+    scores_df: pd.DataFrame,
+    mode: str,
+    top_k: int,
+    confidence_accuracy: float | None,
+    type_accuracy: float | None,
+) -> pd.DataFrame:
+    summary_df = (
+        scores_df.mean(numeric_only=True)
+        .reset_index()
+        .rename(columns={"index": "metric", 0: "score"})
+    )
+
+    summary_df.insert(0, "mode", mode)
+    summary_df.insert(1, "top_k", top_k)
+
+    extra_metrics = []
+
+    if confidence_accuracy is not None:
+        extra_metrics.append(
+            {
+                "mode": mode,
+                "top_k": top_k,
+                "metric": "confidence_accuracy",
+                "score": confidence_accuracy,
+            }
+        )
+
+    if type_accuracy is not None:
+        extra_metrics.append(
+            {
+                "mode": mode,
+                "top_k": top_k,
+                "metric": "type_accuracy",
+                "score": type_accuracy,
+            }
+        )
+
+    if extra_metrics:
+        summary_df = pd.concat(
+            [summary_df, pd.DataFrame(extra_metrics)],
+            ignore_index=True,
+        )
+
+    return summary_df
+
+
+def build_segmented_summary_df(
+    raw_df: pd.DataFrame,
+    scores_df: pd.DataFrame,
+    mode: str,
+    top_k: int,
+) -> pd.DataFrame:
+    evaluation_df = pd.concat(
+        [
+            raw_df.reset_index(drop=True),
+            scores_df.reset_index(drop=True),
+        ],
+        axis=1,
+    )
+
+    segmented_rows = []
+
+    for column in ["difficulty", "category", "domain"]:
+        if column not in evaluation_df.columns:
+            continue
+
+        if evaluation_df[column].isna().all():
+            continue
+
+        grouped = (
+            evaluation_df
+            .groupby(column, dropna=False)
+            .mean(numeric_only=True)
+            .reset_index()
+        )
+
+        grouped.insert(0, "mode", mode)
+        grouped.insert(1, "top_k", top_k)
+        grouped.insert(2, "segment_type", column)
+
+        grouped = grouped.rename(columns={column: "segment"})
+
+        segmented_rows.append(grouped)
+
+    if not segmented_rows:
+        return pd.DataFrame()
+
+    return pd.concat(segmented_rows, ignore_index=True)
 
 
 def main() -> None:
@@ -134,6 +245,12 @@ def main() -> None:
         )
 
         row["reference"] = item.get("reference", "")
+        row["expected_confidence"] = item.get("expected_confidence", "")
+        row["expected_type"] = item.get("expected_type", "")
+        row["difficulty"] = item.get("difficulty", "")
+        row["category"] = item.get("category", "")
+        row["domain"] = item.get("domain", "")
+
         rows.append(row)
 
     dataset = Dataset.from_list(rows)
@@ -152,31 +269,73 @@ def main() -> None:
     scores_df = result.to_pandas()
     raw_df = pd.DataFrame(rows)
 
+    if "expected_confidence" in raw_df.columns:
+        raw_df["confidence_match"] = (
+            raw_df["confidence"] == raw_df["expected_confidence"]
+        )
+        confidence_accuracy = raw_df["confidence_match"].mean()
+    else:
+        confidence_accuracy = None
+
+    if "expected_type" in raw_df.columns:
+        raw_df["type_match"] = raw_df["type"] == raw_df["expected_type"]
+        type_accuracy = raw_df["type_match"].mean()
+    else:
+        type_accuracy = None
+
+    summary_df = build_summary_df(
+        scores_df=scores_df,
+        mode=mode,
+        top_k=top_k,
+        confidence_accuracy=confidence_accuracy,
+        type_accuracy=type_accuracy,
+    )
+
+    segmented_summary_df = build_segmented_summary_df(
+        raw_df=raw_df,
+        scores_df=scores_df,
+        mode=mode,
+        top_k=top_k,
+    )
+
     scores_path = RESULTS_DIR / f"ragas_scores_{mode}_{timestamp}.csv"
     raw_path = RESULTS_DIR / f"ragas_raw_{mode}_{timestamp}.csv"
     summary_path = RESULTS_DIR / f"ragas_summary_{mode}_{timestamp}.csv"
+    segmented_summary_path = (
+        RESULTS_DIR / f"ragas_segmented_summary_{mode}_{timestamp}.csv"
+    )
 
     scores_df.to_csv(scores_path, index=False, encoding="utf-8")
     raw_df.to_csv(raw_path, index=False, encoding="utf-8")
-
-    summary_df = (
-        scores_df.mean(numeric_only=True)
-        .reset_index()
-        .rename(columns={"index": "metric", 0: "score"})
-    )
-
-    summary_df.insert(0, "mode", mode)
-    summary_df.insert(1, "top_k", top_k)
-
     summary_df.to_csv(summary_path, index=False, encoding="utf-8")
+
+    if not segmented_summary_df.empty:
+        segmented_summary_df.to_csv(
+            segmented_summary_path,
+            index=False,
+            encoding="utf-8",
+        )
 
     print("\n✅ Avaliação finalizada.")
     print(f"📊 Scores salvos em: {scores_path}")
     print(f"📄 Respostas salvas em: {raw_path}")
     print(f"📈 Resumo salvo em: {summary_path}")
 
+    if not segmented_summary_df.empty:
+        print(f"📚 Resumo segmentado salvo em: {segmented_summary_path}")
+
+    if confidence_accuracy is not None:
+        print(f"\n🎯 Accuracy da confiança: {confidence_accuracy:.2%}")
+
+    if type_accuracy is not None:
+        print(f"🏷️ Accuracy do tipo de resposta: {type_accuracy:.2%}")
+
     print("\nResumo:")
     print(summary_df)
+
+    if not segmented_summary_df.empty:
+        print("\nResumo segmentado:")
+        print(segmented_summary_df)
 
 
 if __name__ == "__main__":

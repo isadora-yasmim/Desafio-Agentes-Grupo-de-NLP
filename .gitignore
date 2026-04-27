@@ -1,5 +1,5 @@
 # ==============================
-# 🔐 ENV 
+# 🔐 ENV
 # ==============================
 .env
 .env.*
@@ -9,56 +9,29 @@
 # 🐍 PYTHON
 # ==============================
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 *$py.class
 
-# Distribuição / build
-build/
-dist/
-*.egg-info/
-.eggs/
-
-# Virtual environments
 .venv/
 venv/
 env/
 ENV/
 
-# Poetry (RECOMENDADO manter o lock)
-# NÃO ignore o poetry.lock em produção
-
-# Pytest / coverage
 .pytest_cache/
 .coverage
 coverage.xml
 htmlcov/
 
-# ==============================
-# 📊 DADOS / RAG (CRÍTICO)
-# ==============================
-# Dados grandes não devem ir pro Git
-base/
-data/
-datasets/
-*.csv
-*.parquet
-*.jsonl
-
-# (Opcional) Se quiser manter exemplos:
-# !base/sample.json
+build/
+dist/
+*.egg-info/
+.eggs/
 
 # ==============================
-# ⚙️ CACHE / TEMP
-# ==============================
-.cache/
-.tmp/
-tmp/
-temp/
-
-# ==============================
-# 🌐 NODE / FRONTEND
+# 📦 NODE
 # ==============================
 node_modules/
 npm-debug.log*
@@ -66,11 +39,21 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Build frontend
-.next/
-dist/
-out/
-build/
+# ==============================
+# 📊 EVALUATION OUTPUTS
+# ==============================
+eval/results/*
+!eval/results/.gitkeep
+
+# ==============================
+# 🧪 TEMP / CACHE
+# ==============================
+.cache/
+.tmp/
+tmp/
+temp/
+estrutura.txt
+estrutura_clean.txt
 
 # ==============================
 # 🐳 DOCKER
@@ -80,16 +63,18 @@ docker-data/
 *.pid
 
 # ==============================
-# 💻 IDEs / EDITORES
+# 💻 IDE
 # ==============================
 .vscode/
 .idea/
 
-# MacOS
+# ==============================
+# 🖥️ OS
+# ==============================
 .DS_Store
-
-# Windows
 Thumbs.db
+__MACOSX/
+base/__MACOSX/
 
 # ==============================
 # 📓 JUPYTER
@@ -102,7 +87,7 @@ Thumbs.db
 .streamlit/secrets.toml
 
 # ==============================
-# 🔐 CHAVES / SEGURANÇA
+# 🔐 KEYS
 # ==============================
 *.pem
 *.key
@@ -120,4 +105,4 @@ evaluation_results/
 # ==============================
 *.swp
 *.swo
-estrutura_clean.txt
+*.crt
