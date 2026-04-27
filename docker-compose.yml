@@ -4,14 +4,14 @@ services:
     container_name: rag-eletrico-app
     env_file:
       - .env
+    ports:
+      - "8501:8501"
     volumes:
       - .:/app
     working_dir: /app
-    command: python -m scripts.test_retrieval
-
-  app:
-    build: .
-    container_name: rag_app
+    depends_on:
+      - qdrant
+    command: streamlit run src/ui/app.py --server.address=0.0.0.0
 
   qdrant:
     image: qdrant/qdrant:latest

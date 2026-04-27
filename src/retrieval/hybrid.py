@@ -28,7 +28,7 @@ from langchain_community.retrievers import BM25Retriever
 
 from core.config import settings
 from core.logger import get_logger
-from retrieval.semantic import SupabaseSemanticRetriever
+from retrieval.qdrant_retriever import QdrantRetriever
 from retrieval.query_expansion import (
     build_expanded_query,
     bm25_multi_query_retrieve,
@@ -68,12 +68,7 @@ class HybridRetriever:
 
         self.semantic_weight = semantic_weight
         self.bm25_weight = bm25_weight
-
-        self.semantic = SupabaseSemanticRetriever(
-            k=settings.RETRIEVAL_K_SEMANTIC,
-            deduplicate=False,
-            chunk_type_filter="full_doc",
-        )
+        self.semantic = QdrantRetriever(use_reranker=False)
         self.bm25 = build_bm25_retriever(all_chunks, k=settings.RETRIEVAL_K_BM25)
 
         logger.info(
@@ -84,7 +79,11 @@ class HybridRetriever:
         bm25_docs = bm25_multi_query_retrieve(
             self.bm25, query, k_per_query=settings.RETRIEVAL_K_BM25
         )
-        semantic_docs = self.semantic.invoke(query)
+        qdrant_results = self.semantic.search(query, k=settings.RETRIEVAL_K_SEMANTIC)
+        semantic_docs = [
+            Document(page_content=res.get("content", ""), metadata=res.get("metadata", {}))
+            for res in qdrant_results
+        ]
 
         fused = reciprocal_rank_fusion(
             [semantic_docs] * round(self.semantic_weight * 10)
@@ -149,7 +148,12 @@ class HyDERetriever:
         logger.debug(f"HyDE (expandido): {hyde_doc[:200]}")
 
         # Semântico usa o doc hipotético; BM25 usa a query original + sinônimos
-        semantic_docs = self.base_retriever.semantic.invoke(hyde_doc)
+        # Semântico usa o doc hipotético; BM25 usa a query original + sinônimos
+        qdrant_results = self.base_retriever.semantic.search(hyde_doc, k=settings.RETRIEVAL_K_SEMANTIC)
+        semantic_docs = [
+            Document(page_content=res.get("content", ""), metadata=res.get("metadata", {}))
+            for res in qdrant_results
+        ]
         bm25_docs = bm25_multi_query_retrieve(
             self.base_retriever.bm25, query, k_per_query=settings.RETRIEVAL_K_BM25
         )
