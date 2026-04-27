@@ -1,12 +1,14 @@
 from __future__ import annotations
-
+import pickle
+from pathlib import Path
+from retrieval.hybrid import HybridRetriever
 from typing import Any
 
 from openai import OpenAI
 
 from core.config import settings
 from retrieval.qdrant_retriever import QdrantRetriever
-
+import re
 
 class RegulatoryAgent:
     def __init__(self):
@@ -20,6 +22,49 @@ class RegulatoryAgent:
             )
 
         self.client = OpenAI(api_key=api_key)
+        self.hybrid_retriever = self._initialize_hybrid()
+    
+    def _initialize_hybrid(self) -> HybridRetriever:
+        try:
+            chunks_path = Path(__file__).resolve().parents[2] / "base" / "chunks_for_bm25.pkl"
+            
+            if not chunks_path.exists():
+                print("Aviso: Arquivo de chunks não encontrado. Usando Qdrant puro.")
+                return None
+                
+            with open(chunks_path, "rb") as f:
+                all_chunks = pickle.dump(f) # Erro comum: deve ser pickle.load(f)
+                all_chunks = pickle.load(f)
+            
+            return HybridRetriever(all_chunks=all_chunks)
+        except Exception as e:
+            print(f"Erro ao inicializar HybridRetriever: {e}")
+            return None
+
+    def _extract_filters(self, query: str) -> dict[str, str]:
+        """Extrai filtros de metadados a partir da linguagem natural do usuário."""
+        filters = {}
+        
+        # Mapeamento inteligente para as siglas oficiais da ANEEL
+        tipo_mapping = {
+            r"\bREN\b": "REN",
+            r"RESOLU[CÇ][AÃ]O NORMATIVA": "REN",
+            r"\bREH\b": "REH",
+            r"RESOLU[CÇ][AÃ]O HOMOLOGAT[OÓ]RIA": "REH",
+            r"\bDSP\b": "DSP",
+            r"DESPACHO": "DSP",
+            r"\bPRT\b": "PRT",
+            r"PORTARIA": "PRT"
+        }
+        
+        query_upper = query.upper()
+        
+        for padrao, sigla in tipo_mapping.items():
+            if re.search(padrao, query_upper):
+                filters["tipo_ato"] = sigla
+                break # Pega a primeira que encontrar
+                
+        return filters
 
     def invoke(self, inputs: dict[str, Any]) -> dict[str, Any]:
         question = inputs.get("question", "")
@@ -96,46 +141,18 @@ class RegulatoryAgent:
 
         return self.retriever_without_reranker
 
-    def _retrieve(
-        self,
-        query: str,
-        top_k: int,
-        use_reranker: bool,
-    ) -> list[Any]:
+    def _retrieve(self, query: str, top_k: int, use_reranker: bool) -> list[Any]:
+        filters = self._extract_filters(query)
+        tipo_ato = filters.get("tipo_ato")
+
+        # Se o híbrido estiver disponível, usamos ele (BM25 + Semântico)
+        if self.hybrid_retriever:
+            # O invoke já faz a fusão e retorna Documents do LangChain
+            return self.hybrid_retriever.invoke(query)
+        
+        # Fallback para Qdrant puro caso o arquivo de chunks não exista
         retriever = self._get_retriever(use_reranker)
-
-        method_names = [
-            "retrieve",
-            "search",
-            "query",
-            "get_relevant_documents",
-            "similarity_search",
-        ]
-
-        for method_name in method_names:
-            method = getattr(retriever, method_name, None)
-
-            if method is None:
-                continue
-
-            try:
-                return method(
-                    query=query,
-                    top_k=top_k,
-                    use_reranker=use_reranker,
-                )
-            except TypeError:
-                try:
-                    return method(query=query, top_k=top_k)
-                except TypeError:
-                    try:
-                        return method(query, top_k)
-                    except TypeError:
-                        return method(query)
-
-        raise AttributeError(
-            "QdrantRetriever não possui método compatível de busca."
-        )
+        return retriever.search(query=query, k=top_k, tipo_ato=tipo_ato)
 
     def _generate_answer(self, query: str, documents: list[Any]) -> str:
         context_parts = []
@@ -170,7 +187,7 @@ class RegulatoryAgent:
         context = "\n\n---\n\n".join(context_parts)
 
         prompt = f"""
-Você é um especialista em regulação do setor elétrico brasileiro.
+Você é um assistente especialista em regulação do setor elétrico brasileiro (ANEEL).
 
 Responda à pergunta do usuário de forma clara, objetiva e didática.
 
@@ -181,7 +198,7 @@ Regras:
 - Não invente informações.
 - Se o contexto não for suficiente, diga isso claramente.
 - Seja conciso, mas completo.
-- As fontes serão exibidas separadamente pela interface, então não precisa criar uma seção de fontes.
+- As fontes serão exibidas separadamente pela interface, então não precisa criar uma seção de fontes. 
 
 Pergunta do usuário:
 {query}

@@ -575,16 +575,20 @@ def build_pdf_text_splitter():
 
     return RecursiveCharacterTextSplitter(
         separators=[
-            "\n\nArt.",
-            "\n\n§",
-            "\n\nI -",
-            "\n\n",
+            "\n\nArt.",           
+            "\nArt.",             
+            "\n\n§",              
+            "\n§",
+            "\n\nParágrafo único",
+            "\n\nI -",            
+            "\n\n",               
             "\n",
             ". ",
             " ",
         ],
-        chunk_size=800,
-        chunk_overlap=150,
+        keep_separator=True,      
+        chunk_size=2500,          
+        chunk_overlap=250,        
         length_function=len,
         add_start_index=True,
     )

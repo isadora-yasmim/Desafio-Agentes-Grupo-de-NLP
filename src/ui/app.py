@@ -147,7 +147,7 @@ def sidebar():
         rerank = st.toggle("Refinar Resultados", False)
         debug = st.toggle("Detalhes do Processamento", False)
 
-        if st.button("Limpar"):
+        if st.button("Limpar Histórico"):
             st.session_state.messages = []
             st.rerun()
 
