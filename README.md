@@ -13,26 +13,25 @@
   <img src="https://img.shields.io/badge/UI-Streamlit-red?style=for-the-badge" />
 </p>
 
----
-
 ## 📑 Índice
 
 - [🏗️ Estrutura do Projeto](#estrutura-do-projeto)
 - [⚙️ Stack](#stack)
 - [🧠 Arquitetura](#arquitetura)
 - [🚀 Diferenciais](#diferenciais-do-projeto)
+- [📊 Resultados](#resultados)
 - [📁 Organização](#organização)
 - [⚡ Como Executar](#como-executar)
 
----
 
-## Estrutura do Projeto
+## 🏗️ Estrutura do Projeto
 
 <p align="center">
   <img src="assets/rag_project_architecture.svg" width="600"/>
 </p>
 
-## Stack
+
+## ⚙️ Stack
 
 <div align="center">
 
@@ -47,205 +46,221 @@
 
 </div>
 
----
 
-## Arquitetura
-
-A arquitetura separa responsabilidades entre banco vetorial dedicado e dados estruturados:
+## 🧠 Arquitetura
 
 ```text
-Qdrant   → vetores (embeddings + busca semântica)
-Supabase → dados estruturados 
-```
-O Supabase foi usado em uma versão inicial e no projeto atual não é utilizado. Mantido na documentação para histórico e futura integração como base de dados secundária.
+Qdrant → vetores (embeddings + busca semântica)
+````
 
 ### Decisão Arquitetural
 
-| | Antes | Agora |
-|---|---|---|
-| **Vector DB** | Supabase + pgvector | Qdrant |
-| **Índice** | HNSW com falhas | HNSW nativo e otimizado |
-| **Observabilidade** | Limitada | Dashboard + inspeção de payloads |
-| **Escalabilidade** | Inconsistente | Alta performance nativa |
+|                    | Antes               | Agora       |
+| ------------------ | ------------------- | ----------- |
+| **Vector DB**      | Supabase + pgvector | Qdrant      |
+| **Índice**         | Instável            | HNSW nativo |
+| **Escalabilidade** | Limitada            | Alta        |
 
----
 
 ### Pipeline de Ingestão
 
 <p align="center">
   <img src="assets/rag_ingestion_pipeline.svg" width="680"/>
-<p/>
+</p>
 
----
 
 ### Pipeline de Retrieval
 
 <p align="center">
-<img src="assets/rag_retrieval_pipeline.svg" width="680"/>
-<p/>
+  <img src="assets/rag_retrieval_pipeline.svg" width="680"/>
+</p>
 
 
-## Diferenciais do Projeto
+## 🚀 Diferenciais do Projeto
 
 ### Retrieval Avançado
 
-- Ensemble Retriever (**semântico + BM25**)
-- **Chunking semântico** por proposições com overlap controlado
-- **Expansão de termos** do domínio regulatório elétrico
-- **Reranking com cross-encoder**
-- **Diversidade via MMR** (Maximal Marginal Relevance)
+* Ensemble Retriever (**semântico + BM25**)
+* Chunking semântico com overlap
+* Expansão de termos do domínio elétrico
+* Reranking com cross-encoder
+* Diversidade via MMR
 
 ```text
 Fluxo:
-Query → Expansão de termos → Retrieval híbrido → Reranking + MMR → Resposta
+Query → Expansão → Hybrid Retrieval → Reranker → MMR → Resposta
 ```
+
 
 ### Scores Transparentes
 
-Cada resultado expõe três scores independentes:
-
 ```text
-semantic_score  → similaridade do embedding (cosine)
-bm25_score      → relevância por termos (BM25)
-rerank_score    → score do cross-encoder
-final_score     → combinação ponderada (RRF + reranker)
+semantic_score  → similaridade (cosine)
+bm25_score      → relevância por termos
+rerank_score    → cross-encoder
+final_score     → fusão (RRF + reranker)
 ```
+
 
 ### Avaliação com RAGAS
 
-Métricas utilizadas:
+* ✔ Faithfulness
+* ✔ Answer Relevancy
+* ✔ Context Precision
 
-- ✔ Faithfulness
-- ✔ Answer Relevancy
-- ✔ Context Precision
 
-📈 Resultados quantitativos para apresentação técnica
+## 📊 Resultados
 
-### Transparência (UI)
+### Comparação RAGAS
 
-Interface mostra:
+| Métrica               | Sem reranker | Com reranker | Δ        |
+| --------------------- | ------------ | ------------ | -------- |
+| **Faithfulness**      | 0.79         | **0.85**     | ⬆️ +0.06 |
+| **Answer Relevancy**  | 0.84         | **0.89**     | ⬆️ +0.05 |
+| **Context Precision** | 0.83         | **0.86**     | ⬆️ +0.03 |
 
-- 📄 Chunks recuperados
-- 📊 Score semântico, score do reranker e score final
-- 🔗 Fonte do documento
-- 🧠 Nível de confiança
 
----
+### 📈 Visualização
 
-## Organização
+<p align="center">
+  <img src="docs/Evaluation/Graficos/comparacao_ragas_reranker.png" width="600"/>
+</p>
+
+
+### 🧠 Interpretação
+
+* ✔ Menos alucinação (↑ Faithfulness)
+* ✔ Melhor alinhamento com a pergunta
+* ✔ Melhor seleção de contexto
+* ✔ Ganho consistente em todas métricas
+
+👉 **Reranker melhora qualidade sem trade-offs**
+
+
+## 📁 Organização
 
 ```bash
 /
 ├── docker-compose.yml
 ├── Dockerfile
-├── pyproject.toml          # dependências
+├── requirements.txt
+├── pyproject.toml
 ├── README.md
-├── .env
-├── .gitignore
+├── .env / .env.example
 │
-├── src/                    # CÓDIGO PRINCIPAL
-│       ├── __init__.py
-│       │
-│       ├── ingestion/      # entrada de dados
-│       │   ├── parser.py
-│       │   ├── chunker.py  # chunking semântico por proposições
-│       │   └── embedder.py # embeddings + expansão de termos
-│       │
-│       ├── retrieval/      # busca
-│       │   ├── hybrid.py   # BM25 + embedding + fusão RRF
-│       │   └── reranker.py # cross-encoder + diversidade MMR
-│       │
-│       ├── agent/          # LLM / LangChain
-│       │   ├── chain.py
-│       │   └── prompts.py
-│       │
-│       ├── eval/           # métricas (RAGAS)
-│       │   └── benchmark.py
-│       │
-│       ├── ui/             # interface
-│       │   └── app.py
-│       │
-│       ├── core/           # config / utilidades globais
-│       │   ├── config.py
-│       │   ├── settings.py
-│       │   └── logging.py
-│       │
-│       └── infrastructure/ # integrações externas
-│           ├── database.py
-│           ├── vector_store.py  # Qdrant
-│           └── llm_provider.py
+├── base/                    # dados ANEEL
 │
-├── tests/                  # testes
-│   ├── test_ingestion.py
-│   ├── test_retrieval.py
-│   └── test_agent.py
+├── docs/
+│   └── Evaluation/
+│       └── Graficos/
+│           └── comparacao_ragas_reranker.png
 │
-├── scripts/                # scripts utilitários
-│   ├── ingest_data.py
-│   └── run_eval.py
+├── eval/
+│   ├── questions.json
+│   └── results/
+│       └── *.csv
 │
-├── docs/                   # documentação
-│   └── arquitetura.md
+├── assets/                 # diagramas
 │
-├── base/                   # dados brutos ANEEL
-│   ├── _MACOSX/
-│   ├── biblioteca_aneel_gov_br_legislacao_2016_metadados.json
-│   ├── biblioteca_aneel_gov_br_legislacao_2021_metadados.json
-│   └── biblioteca_aneel_gov_br_legislacao_2022_metadados.json
-│
-└── assets/                 # imagens, diagramas
+├── src/
+│   ├── agent/
+│   ├── answering/
+│   ├── core/
+│   ├── ingestion/
+│   │   ├── parser.py
+│   │   ├── chunker.py
+│   │   └── embedder.py
+│   │
+│   ├── retrieval/
+│   │   ├── hybrid.py
+│   │   ├── reranker.py
+│   │   ├── query_expansion.py
+│   │   └── confidence.py
+│   │
+│   ├── scripts/
+│   │   ├── ingest_data.py
+│   │   ├── run_eval.py
+│   │   └── plot_results.py
+│   │
+│   └── ui/
+│       └── app.py
 ```
 
----
 
 ## ⚡ Como Executar
 
-Siga os passos abaixo para inicializar a infraestrutura, popular o banco de dados e executar a interface da aplicação. Certifique-se de ter o **Docker** e o **Docker Compose** instalados.
-
-#### 1. Configuração de Variáveis de Ambiente
-O projeto precisa de algumas chaves de API (como a da OpenAI) para funcionar. 
-Crie um arquivo `.env` na raiz do projeto copiando o exemplo fornecido:
+### 1. Configurar ambiente
 
 ```bash
 cp .env.example .env
 ```
-> **⚠️ Importante:** Abra o arquivo `.env` gerado e preencha com as suas chaves e configurações necessárias antes de prosseguir.
 
-#### 2. Subindo a Infraestrutura
-Construa a imagem da aplicação e inicie os containers (Banco Vetorial Qdrant e o App Streamlit) em segundo plano:
+Preencha sua chave:
+
+```env
+OPENAI_API_KEY=your_key_here
+```
+
+
+### 2. Subir containers
 
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
-*Aguarde alguns segundos para que os serviços fiquem online.*
 
-#### 3. Ingestão de Dados (Obrigatório na primeira execução)
-Antes de realizar perguntas, o banco vetorial precisa ser populado com os documentos da ANEEL. Execute o script de ingestão rodando o comando abaixo (ele executará o script dentro do container que já está rodando):
+
+### 3. Rodar ingestão
 
 ```bash
-docker-compose exec rag-app python -m scripts.ingest_data --clear
+docker exec -it rag-eletrico-app \
+env PYTHONPATH=src \
+python src/scripts/ingest_data.py --clear
 ```
-- A flag --clear garante que qualquer resquício de indexações antigas seja removido, evitando duplicidade e inconsistência nos resultados.
 
-*Aguarde a barra de progresso finalizar e os chunks serem salvos no Qdrant.*
 
-#### 4. Acessando a Aplicação
-Com os dados ingeridos, a interface gráfica do Streamlit já está pronta para uso! Acesse no seu navegador:
+### 4. Rodar avaliação
 
-👉 **[http://localhost:8501](http://localhost:8501)**
+```bash
+docker exec -it rag-eletrico-app \
+env PYTHONPATH=src \
+python src/scripts/run_eval.py
+```
 
----
-#### Comandos Úteis (Troubleshooting)
 
-- **Para ver os logs da aplicação:** `docker-compose logs -f rag-app`
-- **Para derrubar os serviços:** `docker-compose down`
-- **Para resetar o banco de dados e recomeçar:** `docker-compose down -v`
+### 5. Gerar gráficos
 
-### RAG + fallback + transparência + decisão
+```bash
+docker exec -it rag-eletrico-app \
+env PYTHONPATH=src \
+python src/scripts/plot_results.py
+```
 
-| Situação          | Resultado          |
-| ----------------- | ------------------ |
-| docs bons         | RAG + explicação   |
-| docs fracos       | explicação + aviso |
-| docs inexistentes | aviso + fallback   |
-| pergunta factual  | RAG puro           |
+
+### 6. Acessar aplicação
+
+👉 [http://localhost:8501](http://localhost:8501)
+
+
+## 🛠️ Troubleshooting
+
+```bash
+# logs
+docker compose logs -f
+
+# parar tudo
+docker compose down
+
+# reset completo
+docker compose down -v
+```
+
+
+## 🧠 Lógica de Resposta do Sistema
+
+| Situação          | Resultado             |
+| ----------------- | --------------------- |
+| docs bons         | resposta com contexto |
+| docs fracos       | resposta + aviso      |
+| docs inexistentes | fallback controlado   |
+| pergunta factual  | resposta direta       |
+
