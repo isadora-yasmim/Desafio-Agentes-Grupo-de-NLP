@@ -46,7 +46,11 @@ supabase = "2.22.0"
 supabase-auth = "2.22.0"
 qdrant-client = "^1.17.1"
 langchain-qdrant = "<1.0.0"
+<<<<<<< HEAD
 PyPDF2 = "^3.0.0"
+=======
+pandas = "^3.0.2"
+>>>>>>> e2999731d5680b9c56b15f337334b12bd45e9af6
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.0"
