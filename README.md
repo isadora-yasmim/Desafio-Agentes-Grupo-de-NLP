@@ -1,5 +1,6 @@
 <!-- HEADER CENTRALIZADO -->
-<h1 align="center">⚡ RAG para Domínio Elétrico</h1>
+<h1 align="center">⚡ LexEletro </h1>
+<h3 align="center"> RAG para Domínio Elétrico</h3>
 
 <p align="center">
   Sistema de Retrieval-Augmented Generation com foco em alta qualidade, avaliação robusta e transparência.
