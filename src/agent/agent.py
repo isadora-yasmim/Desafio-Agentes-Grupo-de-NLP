@@ -33,7 +33,6 @@ class RegulatoryAgent:
                 return None
                 
             with open(chunks_path, "rb") as f:
-                all_chunks = pickle.dump(f) # Erro comum: deve ser pickle.load(f)
                 all_chunks = pickle.load(f)
             
             return HybridRetriever(all_chunks=all_chunks)
