@@ -283,7 +283,6 @@ def main():
 
         answer = result.get("answer", "")
         sources = result.get("sources", [])
-        st.write("DEBUG SOURCES:", sources)
 
         st.session_state.messages.append(
             {
