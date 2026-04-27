@@ -61,8 +61,8 @@ class HybridRetriever:
     def __init__(
         self,
         all_chunks: list[Document],
-        semantic_weight: float = 0.6,
-        bm25_weight: float = 0.4,
+        semantic_weight: float = 0.3,
+        bm25_weight: float = 0.7,
     ):
         assert abs(semantic_weight + bm25_weight - 1.0) < 1e-6
 

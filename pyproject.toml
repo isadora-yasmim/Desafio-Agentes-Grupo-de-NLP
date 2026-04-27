@@ -44,12 +44,14 @@ streamlit = "^1.38"
 tqdm = "^4.66"
 tenacity = "^8.5"
 
-# Supabase (mantido)
-supabase = "2.21.0"   # ⚠️ troquei versão yanked
+# Supabase
+supabase = "2.21.0"
 supabase-auth = "2.21.0"
 
-pandas = "^2.2"
+# Extras
 matplotlib = "^3.8"
+PyPDF2 = "^3.0.0"
+pandas = "^3.0.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"

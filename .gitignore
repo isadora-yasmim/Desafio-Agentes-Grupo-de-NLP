@@ -92,3 +92,17 @@ base/__MACOSX/
 *.pem
 *.key
 *.crt
+
+# ==============================
+# 🧪 OUTPUTS / RESULTADOS
+# ==============================
+reports/
+outputs/
+evaluation_results/
+
+# ==============================
+# 🧷 MISC
+# ==============================
+*.swp
+*.swo
+*.crt
