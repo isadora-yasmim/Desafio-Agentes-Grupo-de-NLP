@@ -23,39 +23,62 @@ HIGH_CONFIDENCE_THRESHOLD = 0.70
 MEDIUM_CONFIDENCE_THRESHOLD = 0.45
 
 
+def get_doc_metadata(doc: Any) -> dict:
+    if isinstance(doc, dict):
+        return doc.get("metadata") or {}
+
+    return getattr(doc, "metadata", {}) or {}
+
+
 def get_doc_score(doc: Any) -> float:
     """
-    Extrai o melhor score disponível do documento recuperado.
+    Extrai o melhor score disponível do documento/chunk.
 
-    Ordem esperada:
-    1. final_score
-    2. reranker_score
-    3. score
-    4. vector_score
+    Suporta:
+    - dict vindo do retrieval
+    - Document do LangChain
     """
 
-    metadata = getattr(doc, "metadata", {}) or {}
+    metadata = get_doc_metadata(doc)
 
-    for key in ("final_score", "reranker_score", "score", "vector_score"):
-        value = metadata.get(key)
+    possible_values = []
 
-        if value is not None:
-            try:
-                return float(value)
-            except (TypeError, ValueError):
-                continue
+    if isinstance(doc, dict):
+        possible_values.extend(
+            [
+                doc.get("final_score"),
+                doc.get("reranker_score"),
+                doc.get("score"),
+                doc.get("vector_score"),
+                doc.get("semantic_score"),
+                doc.get("bm25_score"),
+            ]
+        )
+
+    possible_values.extend(
+        [
+            metadata.get("final_score"),
+            metadata.get("reranker_score"),
+            metadata.get("score"),
+            metadata.get("vector_score"),
+            metadata.get("semantic_score"),
+            metadata.get("bm25_score"),
+        ]
+    )
+
+    for value in possible_values:
+        if value is None:
+            continue
+
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
 
     return 0.0
 
 
 def calculate_final_confidence(docs: list[Any]) -> float:
-    """
-    Calcula a confiança final da resposta com base nos documentos recuperados.
-
-    Usa o maior score como sinal principal, porque em RAG geralmente o top documento
-    mais relevante é o melhor indicador de confiança.
-    """
-
     if not docs:
         return 0.0
 
