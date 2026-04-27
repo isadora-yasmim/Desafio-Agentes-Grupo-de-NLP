@@ -1,0 +1,14 @@
+[
+  {
+    "question": "Quais documentos falam sobre tarifa social de energia elétrica?",
+    "reference": "A resposta deve identificar documentos relacionados à Tarifa Social de Energia Elétrica, baixa renda, subvenção econômica, CDE ou benefícios tarifários."
+  },
+  {
+    "question": "O que é TUSD?",
+    "reference": "A resposta deve explicar que TUSD é a Tarifa de Uso do Sistema de Distribuição, relacionada ao uso da rede de distribuição de energia elétrica."
+  },
+  {
+    "question": "Quais documentos tratam sobre TE?",
+    "reference": "A resposta deve recuperar documentos relacionados à Tarifa de Energia ou TE, evitando confundir com TEO, TUST ou TUSD."
+  }
+]
