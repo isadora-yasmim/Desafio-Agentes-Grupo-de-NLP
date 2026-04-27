@@ -1,18 +1,13 @@
 from __future__ import annotations
 
 from typing import Any
-import os
 
-from dotenv import load_dotenv
 from openai import OpenAI
 
+from core.config import settings
 from retrieval.qdrant_retriever import QdrantRetriever
 
 from answering.answerer import Answerer
-
-
-# 🔥 carrega .env
-load_dotenv()
 
 
 class RegulatoryAgent:
@@ -21,8 +16,7 @@ class RegulatoryAgent:
         self.retriever_with_reranker = None
         self.answerer = Answerer()
 
-        api_key = os.getenv("OPENAI_API_KEY")
-
+        api_key = settings.OPENAI_API_KEY
         if not api_key:
             raise ValueError(
                 "OPENAI_API_KEY não encontrada. Configure no arquivo .env"
