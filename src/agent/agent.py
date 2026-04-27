@@ -14,7 +14,6 @@ class RegulatoryAgent:
     def __init__(self):
         self.retriever_without_reranker = None
         self.retriever_with_reranker = None
-        self.answerer = Answerer()
 
         api_key = settings.OPENAI_API_KEY
         if not api_key:
@@ -111,22 +110,20 @@ class RegulatoryAgent:
             }
 
         try:
-            result = self.answerer.answer(
+            answer = self._generate_answer(
                 query=query,
-                chunks=docs,
+                documents=docs,
             )
         except Exception as error:
-            return {
-                "answer": (
-                    "Encontrei documentos relevantes, mas ocorreu um erro ao gerar a resposta.\n\n"
-                    f"Erro: `{type(error).__name__}: {error}`"
-                ),
-                "confidence": "baixa",
-                "sources": self._format_sources(docs),
-                "used_rag": False,
-            }
+            answer = (
+                "Encontrei documentos relevantes, mas ocorreu um erro ao gerar a resposta com LLM.\n\n"
+                f"Erro: `{type(error).__name__}: {error}`"
+            )
 
-        return result
+        return {
+            "answer": answer,
+            "sources": self._format_sources(docs),
+        }
 
     def _get_retriever(self, use_reranker: bool) -> QdrantRetriever:
         if use_reranker:
