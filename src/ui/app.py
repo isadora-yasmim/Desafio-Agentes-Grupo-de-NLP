@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import os
 from typing import Any
 import streamlit as st
 
@@ -7,59 +9,50 @@ from agent.agent import build_agent
 
 
 # =========================
-# 🎨 ESTILO (dark minimal)
+# 🎨 ESTILO (responsivo Light/Dark)
 # =========================
 CUSTOM_CSS = """
 <style>
-:root {
-    --bg-main: #1e1e1b;
-    --bg-sidebar: #161615;
-    --bg-card: #2a2a26;
-    --border-soft: #3a3a34;
-    --text-main: #e8e3d8;
-    --text-muted: #a9a297;
-    --accent: #f59e0b;
-}
-
-.stApp {
-    background: var(--bg-main);
-    color: var(--text-main);
-}
-
 .main .block-container {
     max-width: 900px;
     padding-top: 3rem;
     padding-bottom: 8rem;
 }
 
-/* Sidebar */
-section[data-testid="stSidebar"] {
-    background: var(--bg-sidebar);
-    border-right: 1px solid var(--border-soft);
+/* =========================
+   🧠 LOGO E HEADER
+========================= */
+.logo-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.8rem;
 }
 
-/* =========================
-   🧠 HEADER
-========================= */
+.sidebar-logo-container {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 1rem;
+}
+
+.logo-img {
+    width: 80px; /* Ajuste o tamanho da logo principal */
+}
+
+.sidebar-logo-img {
+    width: 50px; /* Ajuste o tamanho da logo na barra lateral */
+}
+
 .app-title {
     text-align: center;
-    margin-top: 4rem;
+    margin-top: 0.5rem;
     font-size: 2.8rem;
     font-weight: 700;
     letter-spacing: -0.03em;
 }
 
-.app-title::before {
-    content: "⚡";
-    display: block;
-    font-size: 2rem;
-    margin-bottom: 0.8rem;
-    color: var(--accent);
-}
-
 .app-subtitle {
     text-align: center;
-    color: var(--text-muted);
+    opacity: 0.7;
     margin-bottom: 2.5rem;
 }
 
@@ -67,20 +60,20 @@ section[data-testid="stSidebar"] {
    💬 MENSAGENS
 ========================= */
 .message-card {
-    border: 1px solid var(--border-soft);
+    border: 1px solid rgba(128, 128, 128, 0.2);
     border-radius: 16px;
     padding: 1rem;
     margin: 1rem 0;
-    background: var(--bg-card);
+    background: var(--secondary-background-color);
 }
 
 .user-card {
-    background: #32322c;
+    background: rgba(128, 128, 128, 0.1);
 }
 
 .role-label {
     font-size: 0.8rem;
-    color: var(--text-muted);
+    opacity: 0.7;
     margin-bottom: 0.4rem;
 }
 
@@ -88,8 +81,8 @@ section[data-testid="stSidebar"] {
    📄 SOURCES
 ========================= */
 .source-card {
-    background: #232321;
-    border: 1px solid var(--border-soft);
+    background: var(--secondary-background-color);
+    border: 1px solid rgba(128, 128, 128, 0.2);
     border-radius: 12px;
     padding: 0.8rem;
     margin-top: 0.6rem;
@@ -101,21 +94,29 @@ section[data-testid="stSidebar"] {
 
 .source-meta {
     font-size: 0.8rem;
-    color: var(--text-muted);
+    opacity: 0.7;
 }
 
 /* =========================
    INPUT
 ========================= */
 div[data-testid="stChatInput"] textarea {
-    background: var(--bg-card) !important;
-    color: var(--text-main) !important;
     border-radius: 20px !important;
-    border: 1px solid var(--border-soft) !important;
 }
 </style>
 """
 
+
+# =========================
+# 🖼️ IMAGE HELPER
+# =========================
+def get_image_base64(file_path):
+    """Converte a imagem para base64 para poder injetar no HTML."""
+    if os.path.exists(file_path):
+        with open(file_path, "rb") as f:
+            data = f.read()
+        return base64.b64encode(data).decode()
+    return None
 
 # =========================
 # 🔧 STATE
@@ -133,13 +134,20 @@ def init_session():
 # =========================
 def sidebar():
     with st.sidebar:
-        st.title("⚡ RAG Elétrico")
+        # Repetindo a logo amarela na lateral
+        img_base64 = get_image_base64("assets/logo.png")
+        if img_base64:
+            st.markdown(
+                f'<div class="sidebar-logo-container"><img src="data:image/png;base64,{img_base64}" class="sidebar-logo-img"></div>',
+                unsafe_allow_html=True
+            )
+        st.title("LexEletro")
 
         top_k = st.slider("Documentos", 3, 20, 5)
-        rerank = st.toggle("Reranker", False)
-        debug = st.toggle("Debug", False)
+        rerank = st.toggle("Refinar Resultados", False)
+        debug = st.toggle("Detalhes do Processamento", False)
 
-        if st.button("Limpar"):
+        if st.button("Limpar Histórico"):
             st.session_state.messages = []
             st.rerun()
 
@@ -153,7 +161,7 @@ def render_sources(sources):
     if not sources:
         return
 
-    with st.expander("Fontes"):
+    with st.expander("Fontes Consultadas"):
         for i, s in enumerate(sources, 1):
             meta = s.get("metadata", {})
             title = meta.get("title") or meta.get("titulo") or "Documento"
@@ -174,11 +182,24 @@ def render_sources(sources):
 # =========================
 def render_chat():
     if not st.session_state.messages:
+        img_base64 = get_image_base64("assets/logo.png")
+        logo_html = f'<div class="logo-container"><img src="data:image/png;base64,{img_base64}" class="logo-img"></div>' if img_base64 else ""
+
         st.markdown(
-            """
-            <div class="app-title">RAG Domínio Elétrico</div>
+            f"""
+            {logo_html}
+            <div class="app-title">LexEletro</div>
             <div class="app-subtitle">
-                Consulte documentos regulatórios do setor elétrico com respostas baseadas em evidências.
+                Consulte documentos regulatórios com inteligência.
+                <br><br>
+                <div style="background-color: var(--secondary-background-color); padding: 20px; border-radius: 12px; border: 1px solid rgba(128, 128, 128, 0.2); font-size: 0.95rem; text-align: left; max-width: 650px; margin: 0 auto; line-height: 1.6;">
+                    🚀 <strong>Sobre este projeto:</strong><br>
+                    Esta aplicação é um sistema de <strong>RAG (Retrieval-Augmented Generation)</strong> desenvolvido exclusivamente para fins educativos. 
+                    Seu objetivo é facilitar a consulta e análise de documentos do setor elétrico brasileiro.
+                    <br><br>
+                    O sistema utiliza busca semântica para encontrar os trechos mais relevantes e uma IA avançada para sintetizar a resposta baseada em evidências. 
+                    <em>Lembre-se: as informações são geradas automaticamente para fins didáticos e devem ser validadas nas fontes oficiais.</em>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -201,12 +222,17 @@ def render_chat():
                 st.markdown("**Assistente**")
                 st.markdown(msg["content"])
                 render_sources(msg.get("sources"))
-                
+
+
 # =========================
 # 🚀 MAIN
 # =========================
 def main():
-    st.set_page_config(layout="wide")
+    st.set_page_config(
+        page_title="LexEletro - RAG",
+        page_icon="⚡",
+        layout="wide"
+    )
 
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
@@ -215,14 +241,15 @@ def main():
 
     render_chat()
 
-    question = st.chat_input("Pergunte algo...")
+    # Mudança no nome da barra de pesquisa (placeholder)
+    question = st.chat_input("Digite sua dúvida sobre a regulação do setor elétrico...")
 
     if question:
         st.session_state.messages.append(
             {"role": "user", "content": question}
         )
 
-        with st.spinner("Buscando..."):
+        with st.spinner("Analisando documentos..."):
             result = st.session_state.agent.invoke(
                 {
                     "question": question,
