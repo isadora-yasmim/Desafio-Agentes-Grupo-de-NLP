@@ -197,17 +197,47 @@ Interface mostra:
 
 ---
 
-## Como Executar
+## ⚡ Como Executar
 
-(alterar depois de finalizado o projeto)
+Siga os passos abaixo para inicializar a infraestrutura, popular o banco de dados e executar a interface da aplicação. Certifique-se de ter o **Docker** e o **Docker Compose** instalados.
+
+#### 1. Configuração de Variáveis de Ambiente
+O projeto precisa de algumas chaves de API (como a da OpenAI) para funcionar. 
+Crie um arquivo `.env` na raiz do projeto copiando o exemplo fornecido:
 
 ```bash
-# Subir ambiente
-docker-compose up --build
-
-# Rodar aplicação
-streamlit run ui/app.py
+cp .env.example .env
 ```
+> **⚠️ Importante:** Abra o arquivo `.env` gerado e preencha com as suas chaves e configurações necessárias antes de prosseguir.
+
+#### 2. Subindo a Infraestrutura
+Construa a imagem da aplicação e inicie os containers (Banco Vetorial Qdrant e o App Streamlit) em segundo plano:
+
+```bash
+docker-compose up -d --build
+```
+*Aguarde alguns segundos para que os serviços fiquem online.*
+
+#### 3. Ingestão de Dados (Obrigatório na primeira execução)
+Antes de realizar perguntas, o banco vetorial precisa ser populado com os documentos da ANEEL. Execute o script de ingestão rodando o comando abaixo (ele executará o script dentro do container que já está rodando):
+
+```bash
+docker-compose exec rag-app python -m scripts.ingest_data
+```
+*Aguarde a barra de progresso finalizar e os chunks serem salvos no Qdrant.*
+
+#### 4. Acessando a Aplicação
+Com os dados ingeridos, a interface gráfica do Streamlit já está pronta para uso! Acesse no seu navegador:
+
+👉 **[http://localhost:8501](http://localhost:8501)**
+
+---
+#### Comandos Úteis (Troubleshooting)
+
+- **Para ver os logs da aplicação:** `docker-compose logs -f rag-app`
+- **Para derrubar os serviços:** `docker-compose down`
+- **Para resetar o banco de dados e recomeçar:** `docker-compose down -v`
+
 ### RAG + fallback + transparência + decisão
 
 | Situação          | Resultado          |
