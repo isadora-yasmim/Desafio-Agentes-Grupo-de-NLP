@@ -18,5 +18,4 @@ RUN pip install --no-cache-dir poetry \
     && poetry install --no-interaction --no-ansi
 
 COPY . .
-
 CMD ["python", "-m", "scripts.test_retrieval"]

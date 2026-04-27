@@ -13,10 +13,6 @@ services:
       - qdrant
     command: streamlit run src/ui/app.py --server.address=0.0.0.0
 
-  app:
-    build: .
-    container_name: rag_app
-
   qdrant:
     image: qdrant/qdrant:latest
     container_name: rag_qdrant
