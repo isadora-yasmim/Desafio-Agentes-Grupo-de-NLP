@@ -1,22 +1,36 @@
-.venv
-venv
-__pycache__
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
 
+# Ambiente virtual
+.venv/
+venv/
+
+# Env
 .env
-.git
-.gitignore
 
-node_modules
-dist
-build
-
-.pytest_cache
-.mypy_cache
-.ruff_cache
-
-.ipynb_checkpoints
-
+# Logs
 *.log
+
+# IDE
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.yml

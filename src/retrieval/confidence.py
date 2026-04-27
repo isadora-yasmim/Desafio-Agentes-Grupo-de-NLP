@@ -19,8 +19,9 @@ class ConfidenceDecision:
     final_score: float
 
 
-HIGH_CONFIDENCE_THRESHOLD = 0.70
-MEDIUM_CONFIDENCE_THRESHOLD = 0.45
+# 🔥 CALIBRADO COM BASE NO SEU DATASET REAL
+HIGH_CONFIDENCE_THRESHOLD = 0.67
+MEDIUM_CONFIDENCE_THRESHOLD = 0.63
 
 
 def get_doc_metadata(doc: Any) -> dict:
@@ -79,11 +80,23 @@ def get_doc_score(doc: Any) -> float:
 
 
 def calculate_final_confidence(docs: list[Any]) -> float:
+    """
+    🔥 MELHORIA IMPORTANTE:
+    - Antes: usava só o max score (ruim)
+    - Agora: usa média dos TOP 3 (mais estável)
+    """
+
     if not docs:
         return 0.0
 
     scores = [get_doc_score(doc) for doc in docs]
-    return max(scores, default=0.0)
+
+    # ordena do maior para o menor
+    scores = sorted(scores, reverse=True)
+
+    top_k = scores[:3]  # pega top 3
+
+    return sum(top_k) / len(top_k)
 
 
 def decide_confidence(docs: list[Any]) -> ConfidenceDecision:
@@ -102,8 +115,7 @@ def decide_confidence(docs: list[Any]) -> ConfidenceDecision:
             level=ConfidenceLevel.MEDIUM,
             should_answer=True,
             warning=(
-                "⚠️ Encontrei documentos relacionados, mas a evidência não é totalmente forte. "
-                "A resposta abaixo deve ser interpretada com cautela."
+                "⚠️ Evidência moderada. A resposta pode não estar completamente suportada pelos documentos."
             ),
             final_score=final_score,
         )
@@ -112,8 +124,7 @@ def decide_confidence(docs: list[Any]) -> ConfidenceDecision:
         level=ConfidenceLevel.LOW,
         should_answer=False,
         warning=(
-            "⚠️ Não encontrei evidência documental suficiente para responder com segurança "
-            "com base nos documentos disponíveis."
+            "⚠️ Evidência fraca ou insuficiente nos documentos recuperados."
         ),
         final_score=final_score,
     )

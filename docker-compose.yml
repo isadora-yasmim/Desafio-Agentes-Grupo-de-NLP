@@ -1,26 +1,92 @@
-services:
-  rag-app:
-    build: .
-    container_name: rag-eletrico-app
-    env_file:
-      - .env
-    ports:
-      - "8501:8501"
-    volumes:
-      - .:/app
-    working_dir: /app
-    depends_on:
-      - qdrant
-    command: streamlit run src/ui/app.py --server.address=0.0.0.0
 
+
+services:
   qdrant:
     image: qdrant/qdrant:latest
-    container_name: rag_qdrant
+    container_name: rag-eletrico-qdrant
     ports:
       - "6333:6333"
       - "6334:6334"
     volumes:
       - qdrant_storage:/qdrant/storage
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: rag-eletrico-app
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app/src
+      QDRANT_URL: http://qdrant:6333
+    working_dir: /app
+    ports:
+      - "8501:8501"
+    depends_on:
+      - qdrant
+    # ⚠️ removi poetry run
+    command: streamlit run src/ui/app.py --server.address=0.0.0.0 --server.port=8501
+
+    # 👉 opcional (dev)
+    volumes:
+      - .:/app
+
+  ingest:
+    build: .
+    container_name: rag-eletrico-ingest
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app/src
+      QDRANT_URL: http://qdrant:6333
+    working_dir: /app
+    depends_on:
+      - qdrant
+    profiles:
+      - tools
+    command: python -m scripts.ingest_data
+
+  eval:
+    build: .
+    container_name: rag-eletrico-eval
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app/src
+      QDRANT_URL: http://qdrant:6333
+    working_dir: /app
+    depends_on:
+      - qdrant
+    profiles:
+      - tools
+    command: python -m scripts.run_eval
+
+  eval-reranker:
+    build: .
+    container_name: rag-eletrico-eval-reranker
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app/src
+      QDRANT_URL: http://qdrant:6333
+    working_dir: /app
+    depends_on:
+      - qdrant
+    profiles:
+      - tools
+    command: python -m scripts.run_eval --reranker
+
+  plots:
+    build: .
+    container_name: rag-eletrico-plots
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /app/src
+    working_dir: /app
+    profiles:
+      - tools
+    command: python -m scripts.plot_results
 
 volumes:
   qdrant_storage:
